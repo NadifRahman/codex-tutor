@@ -1,0 +1,65 @@
+import fs from 'node:fs'
+import path from 'node:path'
+import { createCanvas, DOMMatrix, ImageData, Path2D } from '@napi-rs/canvas'
+
+globalThis.DOMMatrix ??= DOMMatrix
+globalThis.ImageData ??= ImageData
+globalThis.Path2D ??= Path2D
+
+const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs')
+
+class NodeCanvasFactory {
+  create(width, height) {
+    const canvas = createCanvas(width, height)
+    return { canvas, context: canvas.getContext('2d') }
+  }
+
+  reset(target, width, height) {
+    target.canvas.width = width
+    target.canvas.height = height
+  }
+
+  destroy(target) {
+    target.canvas.width = 0
+    target.canvas.height = 0
+    target.canvas = null
+    target.context = null
+  }
+}
+
+export async function openPdf(filePath) {
+  const data = new Uint8Array(fs.readFileSync(filePath))
+  return getDocument({ data, useSystemFonts: true, disableFontFace: false }).promise
+}
+
+export async function extractPage(page) {
+  const content = await page.getTextContent()
+  const items = content.items
+    .filter((item) => typeof item.str === 'string')
+    .map((item) => ({
+      text: item.str,
+      transform: item.transform,
+      width: item.width,
+      height: item.height,
+      font: item.fontName,
+      lineBreak: Boolean(item.hasEOL)
+    }))
+
+  let text = ''
+  for (const item of items) {
+    text += item.text
+    text += item.lineBreak ? '\n' : ' '
+  }
+  return { text: text.replace(/[ \t]+\n/g, '\n').trim(), items }
+}
+
+export async function renderPage(page, outputPath, scale = 2) {
+  const viewport = page.getViewport({ scale })
+  const factory = new NodeCanvasFactory()
+  const target = factory.create(Math.ceil(viewport.width), Math.ceil(viewport.height))
+  await page.render({ canvasContext: target.context, viewport, canvasFactory: factory }).promise
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true })
+  fs.writeFileSync(outputPath, target.canvas.toBuffer('image/png'))
+  factory.destroy(target)
+}
+

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Course Tutor"
+  short_description: "Teach course slides and maintain study notes"
+  default_prompt: "Use $course-tutor to prepare and teach the current course week."

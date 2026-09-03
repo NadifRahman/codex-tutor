@@ -1,0 +1,10 @@
+version: 1
+checkpoint:
+  week: 1
+  source_id: null
+  slide_id: null
+  updated_at: null
+slides: {}
+concepts: {}
+questions_to_revisit: []
+

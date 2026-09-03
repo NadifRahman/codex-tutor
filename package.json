@@ -1,0 +1,33 @@
+{
+  "name": "course-study-template",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=18.18 <23"
+  },
+  "scripts": {
+    "doctor": "node tools/doctor.mjs",
+    "setup:wsl": "bash tools/wsl-install.sh",
+    "install:skill": "node tools/install-skill.mjs",
+    "study:prepare": "node tools/prepare.mjs",
+    "study:render": "node tools/render-page.mjs",
+    "notes:assemble": "node tools/assemble-chapters.mjs",
+    "notes:dev": "npm run notes:build && node tools/serve-book.mjs",
+    "notes:build": "npm run notes:assemble && node tools/build-book.mjs",
+    "notes:preview": "node tools/serve-book.mjs",
+    "validate": "node tools/validate-workspace.mjs",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@napi-rs/canvas": "0.1.80",
+    "pdfjs-dist": "4.8.69",
+    "katex": "0.16.22",
+    "markdown-it": "14.3.1",
+    "tesseract.js": "6.0.1",
+    "yaml": "2.9.0"
+  },
+  "devDependencies": {
+    "pdf-lib": "1.17.1"
+  }
+}

@@ -1,0 +1,30 @@
+# Paths are relative to the repository root. Keep IDs stable after notes exist.
+sources: []
+
+# Example weekly lecture:
+# - id: week-01-lecture-01
+#   type: lecture
+#   title: Week 1 Lecture 1
+#   path: materials/weeks/week-01/lecture-01.pdf
+#   week: 1
+#   lecture: 1
+#   tracked: true
+
+# Examples of optional local-only sources:
+# - id: textbook
+#   type: textbook
+#   title: Course textbook
+#   path: materials/local/textbook.pdf
+#   tracked: false
+#
+# - id: past-midterm-2025
+#   type: assessment
+#   title: 2025 midterm
+#   path: materials/local/assessments/midterm-2025.pdf
+#   tracked: false
+#
+# - id: prior-student-notes
+#   type: web
+#   title: Prior student's notes
+#   url: https://example.com/notes
+#   tracked: false

@@ -1,0 +1,14 @@
+course:
+  code: COURSE-000
+  title: Replace with course title
+  term: Replace with term
+  current_week: 1
+  assessment_dates: []
+
+study:
+  explanation_level: first-principles
+  comprehension: by-concept
+  advance_policy: wait-for-student
+  weak_answer_policy: explain-immediately
+  external_sources: repo-first
+
