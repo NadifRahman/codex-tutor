@@ -1,4 +1,4 @@
-# AI Course Tutor
+# Codex Course Tutor Template
 
 This template turns a course repository into an interactive, source-grounded tutor. Add lecture slides and supporting materials, then ask Codex to teach the course one slide at a time. As you study, Codex builds an illustrated set of notes containing each original slide followed by a detailed explanation.
 
