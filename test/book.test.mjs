@@ -11,7 +11,7 @@ test('builds local HTML and a search index from Markdown chapters', () => {
     fs.mkdirSync(path.join(root, 'notes', 'chapters'), { recursive: true })
     fs.mkdirSync(path.join(root, 'tools', 'site'), { recursive: true })
     fs.mkdirSync(path.join(root, 'node_modules'), { recursive: true })
-    fs.symlinkSync(path.join(process.cwd(), 'node_modules', 'katex'), path.join(root, 'node_modules', 'katex'), 'dir')
+    fs.symlinkSync(path.join(process.cwd(), 'node_modules', 'katex'), path.join(root, 'node_modules', 'katex'), process.platform === 'win32' ? 'junction' : 'dir')
     fs.writeFileSync(path.join(root, 'notes', 'index.md'), '# Test Course\n')
     fs.writeFileSync(path.join(root, 'notes', 'guide.md'), '# Guide\n')
     fs.writeFileSync(path.join(root, 'notes', 'chapters', 'week-01.md'), '# Week 1\n\nCPU datapath $x + y$.\n')
@@ -20,10 +20,13 @@ test('builds local HTML and a search index from Markdown chapters', () => {
 
     const result = buildBook(root)
     assert.equal(result.pages, 3)
-    assert.ok(fs.existsSync(path.join(result.destination, 'chapters', 'week-01', 'index.html')))
+    const chapterHtmlPath = path.join(result.destination, 'chapters', 'week-01', 'index.html')
+    assert.ok(fs.existsSync(chapterHtmlPath))
+    const chapterHtml = fs.readFileSync(chapterHtmlPath, 'utf8')
+    assert.match(chapterHtml, /<base href="\.\.\/\.\.\/">/)
+    assert.match(chapterHtml, /href="assets\/style\.css"/)
     assert.match(fs.readFileSync(path.join(result.destination, 'search.json'), 'utf8'), /CPU datapath/)
   } finally {
     fs.rmSync(root, { recursive: true, force: true })
   }
 })
-

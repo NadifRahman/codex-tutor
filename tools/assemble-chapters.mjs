@@ -31,7 +31,7 @@ export function assembleChapters(root = repoRoot) {
       const body = stripFrontmatter(fs.readFileSync(path.join(sourcePath, slide), 'utf8'))
       const chapterBody = body
         .replace(/^# /m, '### ')
-        .replaceAll('](../../../public/generated/', '](/generated/')
+        .replaceAll('](../../../public/generated/', '](generated/')
       sections.push(chapterBody.trim(), '\n\n---\n')
     }
   }

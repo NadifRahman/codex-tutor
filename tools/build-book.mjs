@@ -28,25 +28,28 @@ function escapeHtml(value) {
 
 function pageTemplate({ title, body, currentPath, chapterLinks }) {
   const safeTitle = escapeHtml(title)
-  const nav = chapterLinks.map((chapter) => `<a href="/${chapter.path}"${currentPath === chapter.path ? ' aria-current="page"' : ''}>${escapeHtml(chapter.title)}</a>`).join('\n')
+  const depth = currentPath.split('/').filter(Boolean).length
+  const rootPrefix = depth === 0 ? './' : '../'.repeat(depth)
+  const nav = chapterLinks.map((chapter) => `<a href="${chapter.path}"${currentPath === chapter.path ? ' aria-current="page"' : ''}>${escapeHtml(chapter.title)}</a>`).join('\n')
   return `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <base href="${rootPrefix}">
   <title>${safeTitle} · Course Study Book</title>
-  <link rel="stylesheet" href="/assets/style.css">
-  <link rel="stylesheet" href="/assets/katex/katex.min.css">
+  <link rel="stylesheet" href="assets/style.css">
+  <link rel="stylesheet" href="assets/katex/katex.min.css">
 </head>
 <body>
-  <header><a class="brand" href="/">Course Study Book</a><input id="search" type="search" placeholder="Search notes…" autocomplete="off"></header>
+  <header><a class="brand" href="./">Course Study Book</a><input id="search" type="search" placeholder="Search notes…" autocomplete="off"></header>
   <div class="layout">
-    <aside><a href="/guide/">Using this book</a><h2>Weekly chapters</h2>${nav}<div id="results"></div></aside>
+    <aside><a href="guide/">Using this book</a><h2>Weekly chapters</h2>${nav}<div id="results"></div></aside>
     <main>${body}</main>
   </div>
-  <script defer src="/assets/katex/katex.min.js"></script>
-  <script defer src="/assets/katex/contrib/auto-render.min.js"></script>
-  <script defer src="/assets/book.js"></script>
+  <script defer src="assets/katex/katex.min.js"></script>
+  <script defer src="assets/katex/contrib/auto-render.min.js"></script>
+  <script defer src="assets/book.js"></script>
 </body>
 </html>\n`
 }
@@ -79,7 +82,7 @@ export function buildBook(root = repoRoot) {
     const outputDir = path.join(destination, page.path)
     fs.mkdirSync(outputDir, { recursive: true })
     fs.writeFileSync(path.join(outputDir, 'index.html'), pageTemplate({ title, body, currentPath: page.path, chapterLinks }), 'utf8')
-    searchIndex.push({ title, path: `/${page.path}`, text: plainText(body).slice(0, 30000) })
+    searchIndex.push({ title, path: page.path || './', text: plainText(body).slice(0, 30000) })
   }
 
   copyDirectory(path.join(root, 'notes', 'public', 'generated'), path.join(destination, 'generated'))

@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const input = document.querySelector('#search')
   const results = document.querySelector('#results')
-  const index = await fetch('/search.json').then((response) => response.json())
+  const index = await fetch('search.json').then((response) => response.json())
   input.addEventListener('input', () => {
     const query = input.value.trim().toLowerCase()
     if (query.length < 2) {
@@ -24,4 +24,3 @@ document.addEventListener('DOMContentLoaded', async () => {
     results.innerHTML = `<h2>Results</h2>${matches.map((page) => `<a href="${page.path}">${page.title}</a>`).join('') || '<p>No matches</p>'}`
   })
 })
-
