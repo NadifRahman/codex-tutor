@@ -10,6 +10,8 @@
     "doctor": "node tools/doctor.mjs",
     "setup:wsl": "bash tools/wsl-install.sh",
     "install:skill": "node tools/install-skill.mjs",
+    "materials:inspect": "node tools/inspect-materials.mjs",
+    "materials:import": "node tools/import-materials.mjs",
     "study:prepare": "node tools/prepare.mjs",
     "study:render": "node tools/render-page.mjs",
     "notes:assemble": "node tools/assemble-chapters.mjs",

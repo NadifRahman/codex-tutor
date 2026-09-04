@@ -20,7 +20,7 @@ No system PDF or OCR package is required. The project uses cross-platform JavaSc
    - WSL2 with the repository under `/mnt/c`: run `npm run setup:wsl` instead.
 3. Run `npm run install:skill` to place the tracked tutor skill where Codex discovers repository skills.
 4. Edit `course.yml` with the course code, title, term, and current week.
-5. Edit `sources.yml` and add the materials described below.
+5. Add course materials with the tutor or register them manually as described below.
 6. Run `npm run doctor`, followed by `npm run study:prepare -- --week 1`.
 7. Start Codex from the repository and say: `Use $course-tutor to teach me week 1.`
 
@@ -40,10 +40,27 @@ The helper installs the locked dependencies in WSL's native cache filesystem and
 
 ## Add course materials
 
-Use these locations as conventions; `sources.yml` is what formally registers a source.
+### Let the tutor organize an inbox
+
+Put one or many files in `materials/inbox/`, then ask:
+
+```text
+Use $course-tutor to import the materials in the inbox for Week 8. Infer what you can and ask me about anything unclear.
+```
+
+The tutor inspects filenames and representative content, detects registered duplicates, infers source types and weeks, moves resolved files to their final locations, updates `sources.yml`, and validates the workspace. Ambiguous files and duplicates remain in the inbox. The importer never overwrites an existing destination.
+
+When an AI interface accepts direct attachments, you can instead attach the files and ask the tutor to import them. It first stages a copy in the inbox so the external originals remain untouched.
+
+Private or copyrighted material defaults to `materials/local/` and is not tracked by Git. The tutor asks before making a materially uncertain classification or treating material as safe to version. Importing organizes and registers files; ask it to **import and prepare** if you also want slide images and extracted text generated immediately.
+
+### Add material manually
+
+You can always organize the files yourself. Use these locations as conventions; `sources.yml` is what formally registers a source.
 
 ```text
 materials/
+├── inbox/                  # ignored staging area for agent-assisted import
 ├── course/                 # course outline and small course-wide files
 ├── weeks/week-01/          # lecture PDFs, transcripts, homework, labs
 └── local/                  # ignored: textbooks, recordings, past exams
@@ -51,14 +68,25 @@ materials/
 
 Each `sources.yml` entry needs a stable `id`, `type`, `title`, and either a `path` or `url`. Weekly sources also use `week` and optionally `lecture`.
 
+```yaml
+- id: week-08-lecture-01
+  type: lecture
+  title: Week 8 Lecture 1
+  path: materials/weeks/week-08/lecture-01.pdf
+  week: 8
+  lecture: 1
+  tracked: true
+```
+
 Supported source types are `lecture`, `transcript`, `textbook`, `assessment`, `assignment`, `lab`, `homework`, `outline`, `notes`, and `web`. PDF and plain-text/Markdown files are processed locally. Web sources are consulted by the tutor when needed and must be cited.
 
 Large, private, or copyrighted inputs belong under `materials/local/`. That directory is ignored by Git. Do not publish generated slide images or a built book containing course content without permission.
 
+After adding an entry manually, run `npm run validate`, then prepare its week with `npm run study:prepare -- --week N`.
+
 ## Weekly workflow
 
-1. Put the new files in `materials/weeks/week-NN/` or `materials/local/`.
-2. Register them in `sources.yml`.
+1. Import new files through `materials/inbox/`, or place them in `materials/weeks/week-NN/` or `materials/local/` and register them in `sources.yml` manually.
 3. Ask Codex `Use $course-tutor to prepare week N`, or run `npm run study:prepare -- --week N`.
 4. Ask Codex `Use $course-tutor to teach me week N`.
 5. Discuss each slide. Ask questions whenever an explanation is unclear.
