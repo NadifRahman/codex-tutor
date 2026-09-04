@@ -67,13 +67,15 @@ The skill owns the interactive protocol: source selection, assessment-aware emph
 
 The tools use Node filesystem APIs for consistent Windows, WSL2, macOS, and Linux path behavior. PDF.js extracts text and page geometry. A prebuilt Node canvas renders full pages, preserving diagrams in context. Tesseract.js is a fallback for image-only pages.
 
-When a Windows-mounted repository exposes partial npm package writes under WSL2, `tools/wsl-install.sh` installs the lockfile into WSL's native cache and links only the ignored `node_modules` directory back into the repository. This does not move or duplicate course data.
+For a repository under `/mnt/c`, `tools/wsl-install.sh` installs the lockfile into WSL's native cache and links only the ignored `node_modules` directory back into the repository. This avoids partial package writes sometimes observed on Windows-mounted filesystems and does not move or duplicate course data. `tools/install-skill.mjs` intentionally uses only built-in Node modules so it remains usable before dependencies are installed or when `node_modules` is damaged.
 
-The original PDF is never modified. A content hash identifies cached work, so an unchanged source can be skipped. Changing a PDF creates new derived data but does not overwrite an existing explanation or the student-owned note section.
+The custom canvas factory is supplied both when PDF.js opens the document and when it renders a page. Document-level registration is required for PDFs that cache shadings or patterns outside an individual render call.
+
+The original PDF is never modified. A content hash identifies cached work, so an unchanged source can be skipped. Changing a PDF creates new derived data but does not overwrite an existing explanation or the student-owned note section. OCR is best-effort: initialization, language-data, or image-decoding failures are recorded in page metadata and the source manifest but do not abort preparation.
 
 ### Canonical notes and derived output
 
-Each slide Markdown file is canonical. It contains agent-managed teaching sections and a marker-delimited personal section. Weekly chapter files, slide PNGs, extracted source pages, and HTML are derived and ignored by Git. A small repository-owned generator renders Markdown with Markdown-it, adds KaTeX math assets, builds a local search index, and serves the output with Node's HTTP server. It intentionally avoids a large web framework.
+Each slide Markdown file is canonical. It contains agent-managed teaching sections and a marker-delimited personal section. Its slide image uses a filesystem-relative path so the image works in an editor's Markdown preview. Chapter assembly rewrites that reference to the `/generated/` site path. Weekly chapter files, slide PNGs, extracted source pages, and HTML are derived and ignored by Git. A small repository-owned generator renders Markdown with Markdown-it, adds KaTeX math assets, builds a local search index, and serves the output with Node's HTTP server. It intentionally avoids a large web framework.
 
 This division makes individual explanations easy to revise and merge while still producing a continuous book for reading.
 

@@ -10,7 +10,7 @@ test('assembles per-slide notes into a continuous weekly chapter', () => {
   try {
     const slideDir = path.join(root, 'notes', 'slides', 'week-01', 'lecture-a')
     fs.mkdirSync(slideDir, { recursive: true })
-    fs.writeFileSync(path.join(slideDir, 'slide-001.md'), '---\npage: 1\n---\n\n# Slide 1\n\nFirst explanation.\n')
+    fs.writeFileSync(path.join(slideDir, 'slide-001.md'), '---\npage: 1\n---\n\n# Slide 1\n\n![Original slide 1](../../../public/generated/lecture-a/slide-001.png)\n\nFirst explanation.\n')
     fs.writeFileSync(path.join(slideDir, 'slide-002.md'), '---\npage: 2\n---\n\n# Slide 2\n\nSecond explanation.\n')
 
     const outputs = assembleChapters(root)
@@ -18,10 +18,11 @@ test('assembles per-slide notes into a continuous weekly chapter', () => {
     const chapter = fs.readFileSync(outputs[0], 'utf8')
     assert.match(chapter, /# Week 1/)
     assert.match(chapter, /### Slide 1/)
+    assert.match(chapter, /!\[Original slide 1\]\(\/generated\/lecture-a\/slide-001\.png\)/)
+    assert.doesNotMatch(chapter, /public\/generated/)
     assert.match(chapter, /Second explanation/)
     assert.ok(chapter.indexOf('First explanation') < chapter.indexOf('Second explanation'))
   } finally {
     fs.rmSync(root, { recursive: true, force: true })
   }
 })
-

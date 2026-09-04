@@ -15,7 +15,9 @@ No system PDF or OCR package is required. The project uses cross-platform JavaSc
 ## Create a course
 
 1. Copy or clone this template into a directory for one course.
-2. Run `npm install`.
+2. Install dependencies:
+   - Native Windows, macOS, or Linux: run `npm install`.
+   - WSL2 with the repository under `/mnt/c`: run `npm run setup:wsl` instead.
 3. Run `npm run install:skill` to place the tracked tutor skill where Codex discovers repository skills.
 4. Edit `course.yml` with the course code, title, term, and current week.
 5. Edit `sources.yml` and add the materials described below.
@@ -26,15 +28,15 @@ If `.agents` is managed or read-only in your Codex environment, skip step 3. `AG
 
 ### WSL2 with a repository under `/mnt/c`
 
-Normally, `npm install` works directly. Some WSL/Windows filesystem or security configurations can expose partially written package files during installation. The symptom is an impossible JavaScript syntax error inside several unrelated files under `node_modules`.
+Use `npm run setup:wsl` instead of `npm install` when the repository is under `/mnt/c`. Some WSL/Windows filesystem or security configurations expose partially written package files during installation. The symptom is an impossible JavaScript syntax error inside unrelated files under `node_modules`, such as `yaml`, `esbuild`, or `markdown-it`.
 
-If that occurs, remove only the generated `node_modules` directory and run:
+If you already ran `npm install` and see this error, remove only the generated `node_modules` directory and run:
 
 ```bash
 npm run setup:wsl
 ```
 
-The helper installs the locked dependencies in WSL's native cache filesystem and links `node_modules` into the Windows-hosted repository. Source files, notes, and course materials remain on Windows.
+The helper installs the locked dependencies in WSL's native cache filesystem and links `node_modules` into the Windows-hosted repository. Source files, notes, and course materials remain on Windows. The skill installer itself is dependency-free, so it can also run before dependency setup.
 
 ## Add course materials
 
@@ -87,7 +89,7 @@ Do not commit `materials/local/`, `.study-cache/`, rendered slide images, depend
 - **Wrong Node version:** run `node --version`; use a supported version and reinstall dependencies.
 - **Random syntax errors inside dependencies on `/mnt/c`:** remove the generated `node_modules` directory and run `npm run setup:wsl`.
 - **A source is missing:** verify its path in `sources.yml`. Missing local-only sources are warnings; missing tracked sources fail validation.
-- **A PDF has no extracted text:** preparation automatically tries OCR. The rendered slide remains available for visual inspection.
+- **A PDF has no extracted text:** preparation automatically tries OCR. If OCR initialization or decoding fails, preparation records a page-level warning and continues with embedded text; the rendered page remains available for visual inspection. Use `--no-ocr` to skip OCR deliberately.
 - **Notes did not change:** ensure Codex has permission to edit the repository and that you invoked the tutor skill.
 - **Skill is not listed:** run `npm run install:skill` and restart Codex. The root `AGENTS.md` fallback still works.
 - **Book is stale:** run `npm run notes:assemble` or restart `npm run notes:dev`.

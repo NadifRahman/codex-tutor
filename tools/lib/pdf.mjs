@@ -8,7 +8,7 @@ globalThis.Path2D ??= Path2D
 
 const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs')
 
-class NodeCanvasFactory {
+export class NodeCanvasFactory {
   create(width, height) {
     const canvas = createCanvas(width, height)
     return { canvas, context: canvas.getContext('2d') }
@@ -29,7 +29,13 @@ class NodeCanvasFactory {
 
 export async function openPdf(filePath) {
   const data = new Uint8Array(fs.readFileSync(filePath))
-  return getDocument({ data, useSystemFonts: true, disableFontFace: false }).promise
+  return getDocument({
+    data,
+    useSystemFonts: true,
+    disableFontFace: false,
+    CanvasFactory: NodeCanvasFactory,
+    verbosity: 0
+  }).promise
 }
 
 export async function extractPage(page) {
@@ -59,7 +65,9 @@ export async function renderPage(page, outputPath, scale = 2) {
   const target = factory.create(Math.ceil(viewport.width), Math.ceil(viewport.height))
   await page.render({ canvasContext: target.context, viewport, canvasFactory: factory }).promise
   fs.mkdirSync(path.dirname(outputPath), { recursive: true })
-  fs.writeFileSync(outputPath, target.canvas.toBuffer('image/png'))
+  const png = target.canvas.toBuffer('image/png')
+  fs.writeFileSync(outputPath, png)
   factory.destroy(target)
+  return png
 }
 

@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { createWorker } from 'tesseract.js'
 import { extractPage, openPdf, renderPage } from './lib/pdf.mjs'
+import { attemptOcr } from './lib/ocr.mjs'
 import {
   hashFile,
   listSources,
@@ -85,7 +86,7 @@ concepts: []
 
 # Slide ${pageNumber}
 
-![Original slide ${pageNumber}](/generated/${source.id}/slide-${page}.png)
+![Original slide ${pageNumber}](../../../public/generated/${source.id}/slide-${page}.png)
 
 ## Explanation
 
@@ -128,6 +129,7 @@ async function preparePdf(source, filePath) {
   fs.mkdirSync(path.join(cacheDir, 'text'), { recursive: true })
   fs.mkdirSync(path.join(cacheDir, 'structured'), { recursive: true })
   let createdNotes = 0
+  const warnings = []
 
   try {
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
@@ -135,29 +137,40 @@ async function preparePdf(source, filePath) {
       const extracted = await extractPage(page)
       const pageName = `page-${pad(pageNumber, 3)}`
       let imagePath
+      let renderedPng
 
       if (source.type === 'lecture') {
         imagePath = resolveRepoPath(`notes/public/generated/${source.id}/slide-${pad(pageNumber, 3)}.png`)
-        await renderPage(page, imagePath)
+        renderedPng = await renderPage(page, imagePath)
         if (createSlideNote(source, pageNumber)) createdNotes += 1
       } else if (source.type === 'assessment') {
         imagePath = path.join(cacheDir, 'images', `${pageName}.png`)
-        await renderPage(page, imagePath)
+        renderedPng = await renderPage(page, imagePath)
       }
 
       let text = extracted.text
       let usedOcr = false
+      let ocrWarning = null
       if (ocrEnabled && text.replace(/\s/g, '').length < 24) {
         imagePath ??= path.join(cacheDir, 'images', `${pageName}.png`)
-        if (!fs.existsSync(imagePath)) await renderPage(page, imagePath)
-        text = await recognize(imagePath)
-        usedOcr = true
+        renderedPng ??= fs.existsSync(imagePath)
+          ? fs.readFileSync(imagePath)
+          : await renderPage(page, imagePath)
+        const result = await attemptOcr({ currentText: text, image: renderedPng, recognize })
+        text = result.text
+        usedOcr = result.usedOcr
+        ocrWarning = result.warning
+        if (ocrWarning) {
+          const warning = `OCR failed for ${source.id} page ${pageNumber}: ${ocrWarning}`
+          warnings.push(warning)
+          console.warn(`warning: ${warning}; continuing with embedded text`)
+        }
       }
 
       fs.writeFileSync(path.join(cacheDir, 'text', `${pageName}.txt`), text, 'utf8')
       fs.writeFileSync(
         path.join(cacheDir, 'structured', `${pageName}.json`),
-        `${JSON.stringify({ page: pageNumber, used_ocr: usedOcr, items: extracted.items }, null, 2)}\n`,
+        `${JSON.stringify({ page: pageNumber, used_ocr: usedOcr, ocr_warning: ocrWarning, items: extracted.items }, null, 2)}\n`,
         'utf8'
       )
       page.cleanup()
@@ -169,10 +182,11 @@ async function preparePdf(source, filePath) {
       input: normalizeRelative(filePath),
       sha256: hash,
       page_count: pdf.numPages,
+      warnings,
       prepared_at: new Date().toISOString()
     }
     fs.writeFileSync(path.join(cacheDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
-    console.log(`prepared ${source.id}: ${pdf.numPages} pages, ${createdNotes} new slide notes`)
+    console.log(`prepared ${source.id}: ${pdf.numPages} pages, ${createdNotes} new slide notes, ${warnings.length} warnings`)
   } finally {
     await pdf.destroy()
   }
