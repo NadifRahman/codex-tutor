@@ -65,6 +65,12 @@ Large, private, or copyrighted inputs belong under `materials/local/`. That dire
 6. The tutor revises that slide's permanent note and waits until you are ready to continue.
 7. Later, say `Use $course-tutor to resume` or `Use $course-tutor to review my weak concepts`.
 
+### Study progress
+
+Your current lesson position, slide states, comprehension history, and review queue are stored in `study-data/progress.yml`. The course tutor updates this file automatically after each slide, allowing later sessions to resume from the same point and powering the course dashboard.
+
+You normally do not need to edit this file manually. Keep it if you want your progress to persist, and commit it if you want that progress available on another device.
+
 Other useful prompts:
 
 - `Use $course-tutor to explain slide 14 again with a concrete example.`
