@@ -63,8 +63,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     element.append(document.createTextNode(value.slice(cursor)))
   }
 
-  const excerpt = (text, query) => {
-    const match = text.toLowerCase().indexOf(query.toLowerCase())
+  const occurrencePositions = (text, query) => {
+    const positions = []
+    const lowerText = text.toLowerCase()
+    const lowerQuery = query.toLowerCase()
+    let match = lowerText.indexOf(lowerQuery)
+    while (match !== -1) {
+      positions.push(match)
+      match = lowerText.indexOf(lowerQuery, match + lowerQuery.length)
+    }
+    return positions
+  }
+
+  const excerpt = (text, query, match) => {
     if (match === -1) return text.slice(0, 150)
     const start = Math.max(0, match - 65)
     const end = Math.min(text.length, match + query.length + 85)
@@ -84,16 +95,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const lowerQuery = query.toLowerCase()
     const matches = index
-      .map((entry) => {
+      .flatMap((entry, entryOrder) => {
         const title = `${entry.context ?? ''} ${entry.title}`.toLowerCase()
-        const text = entry.text.toLowerCase()
         const titleMatch = title.indexOf(lowerQuery)
-        const textMatch = text.indexOf(lowerQuery)
-        return { entry, score: titleMatch === 0 ? 0 : titleMatch > 0 ? 1 : textMatch >= 0 ? 2 : 3, textMatch }
+        const positions = occurrencePositions(entry.text, query)
+        const score = titleMatch === 0 ? 0 : titleMatch > 0 ? 1 : 2
+        if (positions.length > 0) {
+          return positions.map((textMatch, occurrence) => ({ entry, entryOrder, score, textMatch, occurrence, occurrenceCount: positions.length }))
+        }
+        return titleMatch >= 0 ? [{ entry, entryOrder, score, textMatch: -1, occurrence: 0, occurrenceCount: 0 }] : []
       })
-      .filter((match) => match.score < 3)
-      .sort((a, b) => a.score - b.score || a.textMatch - b.textMatch)
-      .slice(0, 10)
+      .sort((a, b) => a.score - b.score || a.entryOrder - b.entryOrder || a.textMatch - b.textMatch)
 
     if (matches.length === 0) {
       const message = document.createElement('p')
@@ -104,7 +116,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       return
     }
 
-    for (const { entry } of matches) {
+    for (const { entry, textMatch, occurrence, occurrenceCount } of matches) {
       const link = document.createElement('a')
       link.className = 'search-result'
       link.href = entry.path
@@ -112,14 +124,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       const context = document.createElement('span')
       context.className = 'search-result-context'
-      context.textContent = entry.context ?? 'Course page'
+      const occurrenceLabel = occurrenceCount > 1 ? ` · Match ${occurrence + 1} of ${occurrenceCount}` : ''
+      context.textContent = `${entry.context ?? 'Course page'}${occurrenceLabel}`
 
       const title = document.createElement('strong')
       appendHighlighted(title, entry.title, query)
 
       const preview = document.createElement('span')
       preview.className = 'search-result-preview'
-      appendHighlighted(preview, excerpt(entry.text, query), query)
+      appendHighlighted(preview, excerpt(entry.text, query, textMatch), query)
 
       link.append(context, title, preview)
       results.append(link)
