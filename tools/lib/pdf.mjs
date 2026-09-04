@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { createCanvas, DOMMatrix, ImageData, Path2D } from '@napi-rs/canvas'
 
 globalThis.DOMMatrix ??= DOMMatrix
@@ -7,6 +8,10 @@ globalThis.ImageData ??= ImageData
 globalThis.Path2D ??= Path2D
 
 const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs')
+const standardFontDataUrl = `${path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../node_modules/pdfjs-dist/standard_fonts'
+)}${path.sep}`
 
 export class NodeCanvasFactory {
   create(width, height) {
@@ -31,8 +36,9 @@ export async function openPdf(filePath) {
   const data = new Uint8Array(fs.readFileSync(filePath))
   return getDocument({
     data,
-    useSystemFonts: true,
-    disableFontFace: false,
+    useSystemFonts: false,
+    disableFontFace: true,
+    standardFontDataUrl,
     CanvasFactory: NodeCanvasFactory,
     verbosity: 0
   }).promise
@@ -70,4 +76,3 @@ export async function renderPage(page, outputPath, scale = 2) {
   factory.destroy(target)
   return png
 }
-
