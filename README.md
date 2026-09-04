@@ -6,7 +6,7 @@ The tutor is designed for technical and STEM courses. It explains material from 
 
 ## Requirements
 
-- Node.js 18.18 through 22. Node 20 or 22 LTS is recommended for new setups.
+- Node.js 18.18 through 24. Node 20, 22, or 24 LTS is recommended for new setups.
 - npm.
 - Codex CLI, IDE extension, or desktop app working in the repository.
 
