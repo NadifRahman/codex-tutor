@@ -18,6 +18,8 @@ test('assembles per-slide notes into a continuous weekly chapter', () => {
     const chapter = fs.readFileSync(outputs[0], 'utf8')
     assert.match(chapter, /# Week 1/)
     assert.match(chapter, /### Slide 1/)
+    assert.match(chapter, /<!-- search:start lecture-a-slide-001 -->/)
+    assert.match(chapter, /id="lecture-a-slide-001"/)
     assert.match(chapter, /!\[Original slide 1\]\(generated\/lecture-a\/slide-001\.png\)/)
     assert.doesNotMatch(chapter, /public\/generated/)
     assert.match(chapter, /Second explanation/)

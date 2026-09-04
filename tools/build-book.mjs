@@ -22,6 +22,24 @@ function plainText(html) {
   return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
+function slideSearchEntries(markdownText, pageTitle, pagePath) {
+  const entries = []
+  const pattern = /<!-- search:start ([a-zA-Z0-9_-]+) -->([\s\S]*?)<!-- search:end -->/g
+  for (const match of markdownText.matchAll(pattern)) {
+    const id = match[1]
+    const section = match[2]
+    const slideTitle = section.match(/^###\s+(.+)$/m)?.[1] ?? 'Slide'
+    const source = id.replace(/-slide-\d+$/, '')
+    entries.push({
+      title: slideTitle,
+      context: `${pageTitle} · ${source}`,
+      path: `${pagePath}#${id}`,
+      text: plainText(markdown.render(section)).slice(0, 12000)
+    })
+  }
+  return entries
+}
+
 function escapeHtml(value) {
   return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;')
 }
@@ -50,9 +68,9 @@ function pageTemplate({ title, body, currentPath, chapterLinks }) {
   <link rel="stylesheet" href="assets/katex/katex.min.css">
 </head>
 <body>
-  <header><a class="brand" href="./">Course Study Book</a><div class="header-actions"><input id="search" type="search" placeholder="Search notes…" autocomplete="off"><button id="theme-toggle" type="button" aria-label="Switch color theme"></button></div></header>
+  <header><a class="brand" href="./">Course Study Book</a><div class="header-actions"><div class="search-shell"><input id="search" type="search" placeholder="Search notes…" aria-label="Search course notes" aria-controls="results" aria-expanded="false" autocomplete="off"><div id="results" class="search-results" role="listbox" hidden></div></div><button id="theme-toggle" type="button" aria-label="Switch color theme"></button></div></header>
   <div class="layout">
-    <aside><a href="guide/">Using this book</a><h2>Weekly chapters</h2>${nav}<div id="results"></div></aside>
+    <aside><a href="guide/">Using this book</a><h2>Weekly chapters</h2>${nav}</aside>
     <main>${body}</main>
   </div>
   <script defer src="assets/katex/katex.min.js"></script>
@@ -90,7 +108,9 @@ export function buildBook(root = repoRoot) {
     const outputDir = path.join(destination, page.path)
     fs.mkdirSync(outputDir, { recursive: true })
     fs.writeFileSync(path.join(outputDir, 'index.html'), pageTemplate({ title, body, currentPath: page.path, chapterLinks }), 'utf8')
-    searchIndex.push({ title, path: page.path || './', text: plainText(body).slice(0, 30000) })
+    const slideEntries = slideSearchEntries(stripFrontmatter(sourceText), title, page.path)
+    if (slideEntries.length > 0) searchIndex.push(...slideEntries)
+    else searchIndex.push({ title, context: 'Course page', path: page.path || './', text: plainText(body).slice(0, 30000) })
   }
 
   copyDirectory(path.join(root, 'notes', 'public', 'generated'), path.join(destination, 'generated'))

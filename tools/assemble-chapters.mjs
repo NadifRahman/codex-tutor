@@ -29,10 +29,11 @@ export function assembleChapters(root = repoRoot) {
     sections.push(`## ${source.name}\n`)
     for (const slide of slides) {
       const body = stripFrontmatter(fs.readFileSync(path.join(sourcePath, slide), 'utf8'))
+      const slideId = `${source.name}-${path.basename(slide, '.md')}`.replace(/[^a-zA-Z0-9_-]/g, '-')
       const chapterBody = body
         .replace(/^# /m, '### ')
         .replaceAll('](../../../public/generated/', '](generated/')
-      sections.push(chapterBody.trim(), '\n\n---\n')
+      sections.push(`<!-- search:start ${slideId} -->\n<span id="${slideId}" class="slide-anchor" aria-hidden="true"></span>\n\n${chapterBody.trim()}\n<!-- search:end -->`, '\n\n---\n')
     }
   }
 
