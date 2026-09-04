@@ -1,4 +1,18 @@
 document.addEventListener('DOMContentLoaded', async () => {
+  const themeToggle = document.querySelector('#theme-toggle')
+  const updateThemeButton = () => {
+    const dark = document.documentElement.dataset.theme === 'dark'
+    themeToggle.textContent = dark ? 'Light mode' : 'Dark mode'
+    themeToggle.setAttribute('aria-pressed', String(dark))
+  }
+  updateThemeButton()
+  themeToggle.addEventListener('click', () => {
+    const theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'
+    document.documentElement.dataset.theme = theme
+    try { localStorage.setItem('course-book-theme', theme) } catch {}
+    updateThemeButton()
+  })
+
   if (window.renderMathInElement) {
     window.renderMathInElement(document.body, {
       delimiters: [

@@ -25,6 +25,8 @@ test('builds local HTML and a search index from Markdown chapters', () => {
     const chapterHtml = fs.readFileSync(chapterHtmlPath, 'utf8')
     assert.match(chapterHtml, /<base href="\.\.\/\.\.\/">/)
     assert.match(chapterHtml, /href="assets\/style\.css"/)
+    assert.match(chapterHtml, /id="theme-toggle"/)
+    assert.match(chapterHtml, /course-book-theme/)
     assert.match(fs.readFileSync(path.join(result.destination, 'search.json'), 'utf8'), /CPU datapath/)
   } finally {
     fs.rmSync(root, { recursive: true, force: true })

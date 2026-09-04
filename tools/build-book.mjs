@@ -38,11 +38,19 @@ function pageTemplate({ title, body, currentPath, chapterLinks }) {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <base href="${rootPrefix}">
   <title>${safeTitle} · Course Study Book</title>
+  <script>
+    try {
+      const savedTheme = localStorage.getItem('course-book-theme')
+      document.documentElement.dataset.theme = savedTheme === 'light' || savedTheme === 'dark'
+        ? savedTheme
+        : matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+    } catch {}
+  </script>
   <link rel="stylesheet" href="assets/style.css">
   <link rel="stylesheet" href="assets/katex/katex.min.css">
 </head>
 <body>
-  <header><a class="brand" href="./">Course Study Book</a><input id="search" type="search" placeholder="Search notes…" autocomplete="off"></header>
+  <header><a class="brand" href="./">Course Study Book</a><div class="header-actions"><input id="search" type="search" placeholder="Search notes…" autocomplete="off"><button id="theme-toggle" type="button" aria-label="Switch color theme"></button></div></header>
   <div class="layout">
     <aside><a href="guide/">Using this book</a><h2>Weekly chapters</h2>${nav}<div id="results"></div></aside>
     <main>${body}</main>
