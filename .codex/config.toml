@@ -1,0 +1,3 @@
+# Course-tutor model guidance lives in the course-tutor skill and teaching protocol.
+# Keep this project config unpinned so the Codex app's model and reasoning controls
+# remain available for explicit user overrides.

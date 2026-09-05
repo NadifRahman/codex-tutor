@@ -129,3 +129,5 @@ Do not commit `materials/local/`, `.study-cache/`, rendered slide images, depend
 - **Book is stale:** run `npm run notes:assemble` or restart `npm run notes:dev`.
 
 For the software design, state files, data flow, and extension points, read [Technical architecture](docs/architecture.md).
+
+For the slide-teaching model defaults and future update procedure, read [Course-tutor model policy](docs/model-policy.md).
