@@ -117,6 +117,12 @@ _A concept-level check will be added when appropriate._
   return true
 }
 
+function existingSlideNotes(source, pageCount) {
+  return Array.from({ length: pageCount }, (_, index) => index + 1)
+    .filter((pageNumber) => fs.existsSync(resolveRepoPath(`notes/slides/week-${pad(source.week)}/${source.id}/slide-${pad(pageNumber, 3)}.md`)))
+    .map((pageNumber) => `${source.id}-slide-${pad(pageNumber, 3)}`)
+}
+
 async function preparePdf(source, filePath) {
   const hash = hashFile(filePath)
   if (!force && existingCacheIsComplete(source, hash)) {
@@ -124,7 +130,13 @@ async function preparePdf(source, filePath) {
     return
   }
 
+  const priorManifestPath = resolveRepoPath(`.study-cache/sources/${source.id}/manifest.json`)
+  const priorManifest = fs.existsSync(priorManifestPath) ? JSON.parse(fs.readFileSync(priorManifestPath, 'utf8')) : null
+  const sourceChanged = Boolean(priorManifest?.sha256 && priorManifest.sha256 !== hash)
   const pdf = await openPdf(filePath)
+  const preexistingSlideNotes = sourceChanged
+    ? existingSlideNotes(source, Math.max(pdf.numPages, Number(priorManifest?.page_count) || 0))
+    : []
   const cacheDir = resolveRepoPath(`.study-cache/sources/${source.id}`)
   fs.mkdirSync(path.join(cacheDir, 'text'), { recursive: true })
   fs.mkdirSync(path.join(cacheDir, 'structured'), { recursive: true })
@@ -183,9 +195,13 @@ async function preparePdf(source, filePath) {
       sha256: hash,
       page_count: pdf.numPages,
       warnings,
+      notes_requiring_reconciliation: preexistingSlideNotes,
       prepared_at: new Date().toISOString()
     }
     fs.writeFileSync(path.join(cacheDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
+    if (manifest.notes_requiring_reconciliation.length) {
+      console.warn(`warning: ${source.id} changed; reconcile ${manifest.notes_requiring_reconciliation.length} existing slide note${manifest.notes_requiring_reconciliation.length === 1 ? '' : 's'}`)
+    }
     console.log(`prepared ${source.id}: ${pdf.numPages} pages, ${createdNotes} new slide notes, ${warnings.length} warnings`)
   } finally {
     await pdf.destroy()

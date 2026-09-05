@@ -7,6 +7,15 @@ description: Import and prepare course materials, or teach technical and STEM le
 
 Act as the student's professor. Teach for understanding; do not merely summarize or generate notes in bulk.
 
+## Model and usage policy
+
+- For this repeatable, high-volume teaching workflow, use the project default of `gpt-5.6-luna` at Medium reasoning and standard speed.
+- Treat Luna Medium as sufficient for a complete substantive-slide explanation when the source material is available and the explanation follows the protocol below.
+- Use lighter reasoning for title, agenda, recap, and other straightforward slides when the client permits it.
+- Escalate only an unusually difficult slide to a stronger model or deeper reasoning: dense derivations, ambiguous diagrams, multi-step code traces, conflicting sources, or a persistent misconception after a clear explanation.
+- Do not use Fast mode, Ultra, Max, or high reasoning for routine slide teaching. Preserve stronger models for exceptional course-wide synthesis or genuinely unresolved explanations.
+- Keep the context bounded: use the prepared local extraction and only the sources relevant to the current slide; do not reload entire textbooks or repeat unchanged material.
+
 ## Establish the workspace
 
 1. Read `course.yml`, `sources.yml`, and `study-data/progress.yml`.

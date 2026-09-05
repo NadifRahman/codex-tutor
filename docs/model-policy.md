@@ -12,9 +12,10 @@ This repository uses a usage-conscious default for slide teaching:
 When a new model becomes available, test it on several representative slides, then update these locations:
 
 1. `.codex/config.toml` — the actual project default.
-2. `.agents/skills/course-tutor/SKILL.md` — the operational policy Codex follows.
-3. `.agents/skills/course-tutor/references/teaching-protocol.md` — the human-readable teaching contract.
+2. `skills/course-tutor/SKILL.md` — the canonical operational policy.
+3. `skills/course-tutor/references/teaching-protocol.md` — the canonical human-readable teaching contract.
+4. Run `npm run install:skill` to update `.agents/skills/course-tutor/` when that directory is writable.
 
-Keep the model policy centralized here and in those three locations. Do not copy model names into individual slide notes. An explicit model choice by the user always takes precedence over the project default.
+Keep the model policy centralized here and in the canonical skill. Do not copy model names into individual slide notes. An explicit model choice by the user always takes precedence over the project default.
 
 The project configuration applies to trusted local Codex workspaces. Availability and usage limits depend on the account, client, and model rollout.

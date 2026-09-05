@@ -1,5 +1,13 @@
 # Teaching and note protocol
 
+## Default model policy
+
+The course workspace defaults to `gpt-5.6-luna` at Medium reasoning and standard speed. This is the normal setting for slide-by-slide teaching and should produce detailed, source-grounded explanations under this protocol.
+
+Use lighter reasoning for title, agenda, recap, and straightforward definition slides when available. Escalate only when the current slide genuinely needs deeper analysis: a dense proof or derivation, an ambiguous visual, a multi-step code trace, conflicting source material, or a persistent misconception after explanation. Do not use Fast mode, Ultra, Max, or high reasoning for routine slides.
+
+Model choice is a default, not a constraint: an explicit user choice takes precedence. If escalation is needed, preserve the current slide checkpoint and explain why the extra depth is warranted.
+
 ## Source priority
 
 Use sources in this order unless the user directs otherwise:
