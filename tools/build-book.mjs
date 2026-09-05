@@ -1,12 +1,12 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import MarkdownIt from 'markdown-it'
 import YAML from 'yaml'
+import { createMarkdownRenderer } from './lib/markdown.mjs'
 import { repoRoot, stripFrontmatter } from './lib/workspace.mjs'
 
 const outputRoot = path.join(repoRoot, '.study-cache', 'book')
-const markdown = new MarkdownIt({ html: true, linkify: true, typographer: true })
+const markdown = createMarkdownRenderer()
 
 function copyDirectory(source, destination) {
   if (!fs.existsSync(source)) return
@@ -33,7 +33,7 @@ function readYamlOr(root, relativePath, fallback) {
   }
 }
 
-function slideSearchEntries(markdownText, pageTitle, pagePath) {
+function slideSearchEntries(markdownText, pageTitle, pagePath, sourcePath) {
   const entries = []
   const pattern = /<!-- search:start ([a-zA-Z0-9_-]+) -->([\s\S]*?)<!-- search:end -->/g
   for (const match of markdownText.matchAll(pattern)) {
@@ -45,7 +45,7 @@ function slideSearchEntries(markdownText, pageTitle, pagePath) {
       title: slideTitle,
       context: `${pageTitle} · ${source}`,
       path: `${pagePath}#${id}`,
-      text: plainText(markdown.render(section)).slice(0, 12000)
+      text: plainText(markdown.render(section, { sourcePath })).slice(0, 12000)
     })
   }
   return entries
@@ -81,7 +81,8 @@ function dashboardHtml({ root, chapterFiles }) {
   const weeks = chapterFiles.map((name) => {
     const week = Number(name.match(/\d+/)?.[0])
     const markdownText = fs.readFileSync(path.join(root, 'notes', 'chapters', name), 'utf8')
-    const entries = slideSearchEntries(stripFrontmatter(markdownText), `Week ${week}`, `chapters/${name.replace('.md', '')}/`)
+    const chapterPath = path.join(root, 'notes', 'chapters', name)
+    const entries = slideSearchEntries(stripFrontmatter(markdownText), `Week ${week}`, `chapters/${name.replace('.md', '')}/`, chapterPath)
     const counts = { unseen: 0, teaching: 0, understood: 0, 'review-needed': 0 }
     for (const entry of entries) {
       const slideId = entry.path.split('#')[1]
@@ -207,8 +208,6 @@ function pageTemplate({ title, body, currentPath, chapterLinks }) {
     <aside><a href="guide/">Using this book</a><h2>Weekly chapters</h2>${nav}</aside>
     <main>${body}</main>
   </div>
-  <script defer src="assets/katex/katex.min.js"></script>
-  <script defer src="assets/katex/contrib/auto-render.min.js"></script>
   <script defer src="assets/book.js"></script>
 </body>
 </html>\n`
@@ -238,19 +237,19 @@ export function buildBook(root = repoRoot) {
   for (const page of pages) {
     const sourceText = fs.readFileSync(page.source, 'utf8')
     const title = titleFrom(sourceText, page.fallback)
-    const markdownBody = markdown.render(stripFrontmatter(sourceText))
+    const markdownBody = markdown.render(stripFrontmatter(sourceText), { sourcePath: page.source })
     const body = page.path === '' ? `${dashboardHtml({ root, chapterFiles })}<section class="dashboard-about">${markdownBody}</section>` : markdownBody
     const outputDir = path.join(destination, page.path)
     fs.mkdirSync(outputDir, { recursive: true })
     fs.writeFileSync(path.join(outputDir, 'index.html'), pageTemplate({ title, body, currentPath: page.path, chapterLinks }), 'utf8')
-    const slideEntries = slideSearchEntries(stripFrontmatter(sourceText), title, page.path)
+    const slideEntries = slideSearchEntries(stripFrontmatter(sourceText), title, page.path, page.source)
     if (slideEntries.length > 0) searchIndex.push(...slideEntries)
     else searchIndex.push({ title, context: 'Course page', path: page.path || './', text: plainText(body).slice(0, 30000) })
   }
 
   copyDirectory(path.join(root, 'notes', 'public', 'generated'), path.join(destination, 'generated'))
   copyDirectory(path.join(root, 'node_modules', 'katex', 'dist', 'fonts'), path.join(destination, 'assets', 'katex', 'fonts'))
-  for (const relative of ['katex.min.css', 'katex.min.js', 'contrib/auto-render.min.js']) {
+  for (const relative of ['katex.min.css']) {
     const source = path.join(root, 'node_modules', 'katex', 'dist', relative)
     const target = path.join(destination, 'assets', 'katex', relative)
     fs.mkdirSync(path.dirname(target), { recursive: true })

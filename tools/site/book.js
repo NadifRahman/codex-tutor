@@ -13,18 +13,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateThemeButton()
   })
 
-  if (window.renderMathInElement) {
-    window.renderMathInElement(document.body, {
-      delimiters: [
-        { left: '$$', right: '$$', display: true },
-        { left: '$', right: '$', display: false },
-        { left: '\\[', right: '\\]', display: true },
-        { left: '\\(', right: '\\)', display: false }
-      ],
-      throwOnError: false
-    })
-  }
-
   const input = document.querySelector('#search')
   const results = document.querySelector('#results')
   let index = []

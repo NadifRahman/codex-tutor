@@ -50,6 +50,7 @@ main a { color: var(--accent); }
 .slide-anchor:target + h3 { color: var(--accent); }
 main img[alt^='Original slide'] { display: block; width: min(100%, 1100px); margin: 1rem auto 2rem; border: 1px solid var(--border); border-radius: 10px; background: #ffffff; box-shadow: 0 8px 28px var(--shadow); }
 main pre { overflow-x: auto; padding: 1rem; border-radius: 8px; background: #111827; color: #f9fafb; }
+main .katex-display { max-width: 100%; overflow-x: auto; overflow-y: hidden; padding: .25rem 0; }
 main blockquote { margin-left: 0; padding-left: 1rem; border-left: 4px solid var(--accent); color: var(--muted); }
 main hr { margin: 3rem 0; border: 0; border-top: 1px solid var(--border); }
 .dashboard { display: grid; gap: 1.25rem; }
