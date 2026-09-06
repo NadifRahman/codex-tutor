@@ -91,11 +91,11 @@ After adding an entry manually, run `npm run validate`, then prepare its week wi
 ## Weekly workflow
 
 1. Import new files through `materials/inbox/`, or place them in `materials/weeks/week-NN/` or `materials/local/` and register them in `sources.yml` manually.
-3. Ask Codex `Use $course-tutor to prepare week N`, or run `npm run study:prepare -- --week N`.
-4. Ask Codex `Use $course-tutor to teach me week N`.
-5. Discuss each slide. Ask questions whenever an explanation is unclear.
-6. The tutor revises that slide's permanent note and waits until you are ready to continue.
-7. Later, say `Use $course-tutor to resume` or `Use $course-tutor to review my weak concepts`.
+2. Ask Codex `Use $course-tutor to prepare week N`, or run `npm run study:prepare -- --week N`.
+3. Ask Codex `Use $course-tutor to teach me week N`.
+4. Discuss each slide. Ask questions whenever an explanation is unclear.
+5. The tutor revises that slide's permanent note and waits until you are ready to continue.
+6. Later, say `Use $course-tutor to resume` or `Use $course-tutor to review my weak concepts`.
 
 ### Study progress
 
