@@ -15,7 +15,7 @@
     "study:prepare": "node tools/prepare.mjs",
     "study:render": "node tools/render-page.mjs",
     "notes:assemble": "node tools/assemble-chapters.mjs",
-    "notes:dev": "npm run notes:build && node tools/serve-book.mjs",
+    "notes:dev": "node tools/live-book.mjs",
     "notes:build": "npm run notes:assemble && node tools/build-book.mjs",
     "notes:preview": "node tools/serve-book.mjs",
     "validate": "node tools/validate-workspace.mjs",

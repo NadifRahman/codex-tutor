@@ -110,6 +110,12 @@ Other useful prompts:
 
 Run `npm run notes:dev` and open the local URL shown in the terminal. The book includes weekly chapters, slide images, explanations, math rendering, navigation, and local search.
 
+Leave this command running while studying. It watches saved slide Markdown, the home and guide pages, study progress, course/source configuration, prepared images, and source manifests. After edits settle, it rebuilds the book and refreshes open browser tabs automatically, usually within a second plus build time. Your current page and approximate reading position are preserved. A small status indicator shows connection or build problems.
+
+If an edit temporarily breaks the build (for example, an unfinished equation), the last successful book stays available. Fix and save the file to retry automatically. Newly added and deleted slide notes are included. Generated chapters and book output do not trigger rebuild loops. Stop the server with Ctrl+C. `npm run notes:preview` still serves a previously built book without watching.
+
+Live refresh responds to files saved in this local repository. A conversation must actually update these Markdown files for the book to change; chat messages alone are not inputs to the book.
+
 For a production build, run `npm run notes:build`. Generated HTML stays local under `.study-cache/book/` and is ignored by Git.
 
 ## What gets committed

@@ -213,8 +213,7 @@ function pageTemplate({ title, body, currentPath, chapterLinks }) {
 </html>\n`
 }
 
-export function buildBook(root = repoRoot) {
-  const destination = path.join(root, '.study-cache', 'book')
+export function buildBook(root = repoRoot, destination = path.join(root, '.study-cache', 'book')) {
   fs.rmSync(destination, { recursive: true, force: true })
   fs.mkdirSync(path.join(destination, 'assets'), { recursive: true })
 
