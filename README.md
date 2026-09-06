@@ -156,3 +156,7 @@ Do not commit `materials/local/`, `.study-cache/`, rendered slide images, depend
 For the software design, state files, data flow, and extension points, read [Technical architecture](docs/architecture.md).
 
 For the slide-teaching model defaults and future update procedure, read [Course-tutor model policy](docs/model-policy.md).
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
