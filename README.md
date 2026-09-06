@@ -4,6 +4,24 @@ This repository is a reusable template for an individual course repository. Use 
 
 The tutor is designed for technical and STEM courses. It explains material from first principles, answers follow-up questions, checks comprehension at concept boundaries, remembers weak topics, and uses past assessments to prioritize important skills without revealing questions during ordinary lessons.
 
+## What it looks like
+
+The local study book turns prepared course materials into a resumable workspace. Its dashboard shows weekly progress, material readiness, and concepts that need review.
+
+![Course Study Book dashboard showing weekly progress, a resume button, and a concept review queue](docs/images/study-dashboard.png)
+
+The built-in search makes it easy to jump back to a concept, slide explanation, or source-grounded passage.
+
+![Search results showing matching slide explanations for the term datapath](docs/images/search-results.png)
+
+Each original slide is followed by a source-grounded explanation and walkthrough, so the resulting notes read like an illustrated course book rather than a slide summary.
+
+![A lecture slide followed by its explanation and mathematical walkthrough](docs/images/slide-explanation.png)
+
+Open study sections provide a place for broader questions, topic connections, and worked examples outside the weekly slide sequence.
+
+![An open study section containing an introduction and course topic overview](docs/images/open-study-section.png)
+
 ## Requirements
 
 - Node.js 18.18 through 24. Node 20, 22, or 24 LTS is recommended for new setups.
@@ -15,9 +33,7 @@ No system PDF or OCR package is required. The project uses cross-platform JavaSc
 ## Create a course
 
 1. Use this repository as the template for a course repository.
-2. Install dependencies:
-   - Native Windows, macOS, or Linux: run `npm install`.
-   - WSL2 with the repository under `/mnt/c`: run `npm run setup:wsl` instead.
+2. Install dependencies with `npm install`.
 3. Run `npm run install:skill` to place the tracked tutor skill where Codex discovers repository skills.
 4. Edit `course.yml` with the course code, title, term, and current week.
 5. [Add course materials with the tutor](#let-the-tutor-organize-an-inbox), or [register them manually](#add-material-manually).
@@ -25,18 +41,6 @@ No system PDF or OCR package is required. The project uses cross-platform JavaSc
 7. Start Codex from the repository and say: `Use $course-tutor to teach me week 1.`
 
 If `.agents` is managed or read-only in your Codex environment, skip step 3. `AGENTS.md` tells Codex to load the tracked skill directly from `skills/course-tutor/SKILL.md`.
-
-### WSL2 with a repository under `/mnt/c`
-
-Use `npm run setup:wsl` instead of `npm install` when the repository is under `/mnt/c`. Some WSL/Windows filesystem or security configurations expose partially written package files during installation. The symptom is an impossible JavaScript syntax error inside unrelated files under `node_modules`, such as `yaml`, `esbuild`, or `markdown-it`.
-
-If you already ran `npm install` and see this error, remove only the generated `node_modules` directory and run:
-
-```bash
-npm run setup:wsl
-```
-
-The helper installs the locked dependencies in WSL's native cache filesystem and links `node_modules` into the Windows-hosted repository. Source files, notes, and course materials remain on Windows. The skill installer itself is dependency-free, so it can also run before dependency setup.
 
 ## Add course materials
 
@@ -143,7 +147,6 @@ Do not commit `materials/local/`, `.study-cache/`, rendered slide images, depend
 ## Troubleshooting
 
 - **Wrong Node version:** run `node --version`; use a supported version and reinstall dependencies.
-- **Random syntax errors inside dependencies on `/mnt/c`:** remove the generated `node_modules` directory and run `npm run setup:wsl`.
 - **A source is missing:** verify its path in `sources.yml`. Missing local-only sources are warnings; missing tracked sources fail validation.
 - **A PDF has no extracted text:** preparation automatically tries OCR. If OCR initialization or decoding fails, preparation records a page-level warning and continues with embedded text; the rendered page remains available for visual inspection. Use `--no-ocr` to skip OCR deliberately.
 - **Notes did not change:** ensure Codex has permission to edit the repository and that you invoked the tutor skill.

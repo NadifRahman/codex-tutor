@@ -6,7 +6,7 @@ import { repoRoot } from './lib/workspace.mjs'
 import { assembleChapters } from './assemble-chapters.mjs'
 import { buildBook } from './build-book.mjs'
 
-// Polling handles editor atomic saves and Windows/WSL shared folders.
+// Polling handles editor atomic saves across supported platforms.
 export function inputSnapshot(root) {
   const entries = []
   function visit(relative) {
