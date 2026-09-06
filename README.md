@@ -1,6 +1,6 @@
 # Codex Course Tutor Template
 
-This template turns a course repository into an interactive, source-grounded tutor. Add lecture slides and supporting materials, then ask Codex to teach the course one slide at a time. As you study, Codex builds an illustrated set of notes containing each original slide followed by a detailed explanation.
+This repository is a reusable template for an individual course repository. Use it to organize a course's materials and study it with an interactive, source-grounded tutor. Add lecture slides and supporting materials, then ask Codex to teach the course one slide at a time. As you study, Codex builds an illustrated set of notes containing each original slide followed by a detailed explanation.
 
 The tutor is designed for technical and STEM courses. It explains material from first principles, answers follow-up questions, checks comprehension at concept boundaries, remembers weak topics, and uses past assessments to prioritize important skills without revealing questions during ordinary lessons.
 
@@ -14,13 +14,13 @@ No system PDF or OCR package is required. The project uses cross-platform JavaSc
 
 ## Create a course
 
-1. Copy or clone this template into a directory for one course.
+1. Use this repository as the template for a course repository.
 2. Install dependencies:
    - Native Windows, macOS, or Linux: run `npm install`.
    - WSL2 with the repository under `/mnt/c`: run `npm run setup:wsl` instead.
 3. Run `npm run install:skill` to place the tracked tutor skill where Codex discovers repository skills.
 4. Edit `course.yml` with the course code, title, term, and current week.
-5. Add course materials with the tutor or register them manually as described below.
+5. [Add course materials with the tutor](#let-the-tutor-organize-an-inbox), or [register them manually](#add-material-manually).
 6. Run `npm run doctor`, followed by `npm run study:prepare -- --week 1`.
 7. Start Codex from the repository and say: `Use $course-tutor to teach me week 1.`
 
@@ -106,6 +106,22 @@ Other useful prompts:
 - `Use $course-tutor to practise the 2025 midterm. I want to see solutions on request.`
 - `Use $course-tutor to update the assessment map from all past exams.`
 
+## Open study sections
+
+Weekly lectures remain the main workflow. Open study sections use the same `course-tutor` skill. Invoke it explicitly when starting or resuming a section:
+
+> Use $course-tutor to create a Midterm prep section using weeks 1–5 and the practice exam. Help me work through concepts and keep detailed notes as we talk.
+
+> Use $course-tutor to resume my Midterm prep section.
+
+> Use $course-tutor to start a Course connections section. Let me choose the topics and keep concise notes.
+
+Codex creates authored Markdown under `notes/sections/<name>/index.md`, integrating useful explanations and worked examples after substantive exchanges. No week or PDF is required. Larger sections can have additional pages linked from their index. Personal-note blocks are protected.
+
+Sections appear automatically under **Study sections** in the book, in search, and in Print / Save PDF. Run `npm run notes:dev` for live updates, or `npm run notes:build` for a static build. Saving Markdown drives updates; chat alone does not change the book.
+
+Each section's purpose, references, current topic, and next step are saved in `study-data/sections.yml`. This keeps the weekly slide checkpoint intact. An unqualified resume returns to the active section; explicitly asking to resume weekly study switches back to the lecture. Notes and section state can be versioned alongside existing course notes.
+
 ## Read the course book
 
 Run `npm run notes:dev` and open the local URL shown in the terminal. The book includes weekly chapters, slide images, explanations, math rendering, navigation, and local search.
@@ -137,19 +153,3 @@ Do not commit `materials/local/`, `.study-cache/`, rendered slide images, depend
 For the software design, state files, data flow, and extension points, read [Technical architecture](docs/architecture.md).
 
 For the slide-teaching model defaults and future update procedure, read [Course-tutor model policy](docs/model-policy.md).
-
-## Open study sections
-
-Weekly lectures remain the main workflow. Open study sections use the same `course-tutor` skill. Invoke it explicitly when starting or resuming a section:
-
-> Use $course-tutor to create a Midterm prep section using weeks 1–5 and the practice exam. Help me work through concepts and keep detailed notes as we talk.
-
-> Use $course-tutor to resume my Midterm prep section.
-
-> Use $course-tutor to start a Course connections section. Let me choose the topics and keep concise notes.
-
-Codex creates authored Markdown under `notes/sections/<name>/index.md`, integrating useful explanations and worked examples after substantive exchanges. No week or PDF is required. Larger sections can have additional pages linked from their index. Personal-note blocks are protected.
-
-Sections appear automatically under **Study sections** in the book, in search, and in Print / Save PDF. Run `npm run notes:dev` for live updates, or `npm run notes:build` for a static build. Saving Markdown drives updates; chat alone does not change the book.
-
-Each section's purpose, references, current topic, and next step are saved in `study-data/sections.yml`. This keeps the weekly slide checkpoint intact. An unqualified resume returns to the active section; explicitly asking to resume weekly study switches back to the lecture. Notes and section state can be versioned alongside existing course notes.
