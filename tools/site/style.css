@@ -37,6 +37,8 @@ header { position: sticky; top: 0; z-index: 2; display: flex; gap: 2rem; align-i
 .search-result mark { border-radius: 3px; padding: 0 .08em; background: color-mix(in srgb, var(--accent) 25%, transparent); color: inherit; }
 .search-message { margin: 0; padding: .9rem; color: var(--muted); font-size: .9rem; }
 #theme-toggle { min-width: 6.5rem; padding: .55rem .8rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-subtle); color: var(--text); font: inherit; font-weight: 650; cursor: pointer; }
+.print-book-link, .print-controls button { padding: .55rem .8rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-subtle); color: var(--text); font: inherit; font-weight: 650; text-decoration: none; cursor: pointer; }
+.print-book-link:hover, .print-controls button:hover { border-color: var(--accent); color: var(--accent); }
 #theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
 #theme-toggle:focus-visible, #search:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 35%, transparent); outline-offset: 2px; }
 .layout { display: grid; grid-template-columns: 16rem minmax(0, 1fr); min-height: calc(100vh - 58px); }
@@ -99,3 +101,22 @@ main hr { margin: 3rem 0; border: 0; border-top: 1px solid var(--border); }
 @media (max-width: 900px) { .dashboard-grid { grid-template-columns: 1fr; } .dashboard-card-wide { grid-column: auto; } }
 @media (max-width: 760px) { header { align-items: flex-start; flex-direction: column; gap: .65rem; } .header-actions, .search-shell { width: 100%; } .layout { grid-template-columns: 1fr; } aside { border-right: 0; border-bottom: 1px solid var(--border); } .dashboard-hero { align-items: stretch; flex-direction: column; } .material-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 420px) { .material-stats { grid-template-columns: 1fr; } }
+@media print {
+  @page { margin: 16mm 14mm 18mm; }
+  :root { color-scheme: light; }
+  *, *::before, *::after { color: #000 !important; box-shadow: none !important; text-shadow: none !important; }
+  body { background: #fff !important; font-family: Georgia, 'Times New Roman', serif; font-size: 10.5pt; line-height: 1.45; }
+  header, aside, .print-controls, .search-results { display: none !important; }
+  .layout { display: block; min-height: 0; }
+  main, main.print-book { width: auto; max-width: none; padding: 0; }
+  .print-title { min-height: 235mm; padding-top: 75mm; break-after: page; page-break-after: always; }
+  .print-title > p:first-child { font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 12pt; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+  .print-chapter { break-before: page; page-break-before: always; }
+  h1, h2, h3, h4, h5, h6 { break-after: avoid; page-break-after: avoid; }
+  pre, blockquote, table, figure, img, svg, .katex-display { break-inside: avoid; page-break-inside: avoid; }
+  main pre { overflow: visible; border: 1px solid #777; border-radius: 0; background: #fff !important; color: #000 !important; white-space: pre-wrap; }
+  main img[alt^='Original slide'] { width: 100%; max-height: 235mm; margin: 5mm auto 8mm; border: 1px solid #777; border-radius: 0; background: #fff !important; }
+  main .katex-display { overflow: visible; }
+  main blockquote { border-left-color: #444; color: #000; }
+  a { color: #000 !important; text-decoration: underline; }
+}

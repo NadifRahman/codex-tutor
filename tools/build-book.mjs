@@ -203,12 +203,31 @@ function pageTemplate({ title, body, currentPath, chapterLinks }) {
   <link rel="stylesheet" href="assets/katex/katex.min.css">
 </head>
 <body>
-  <header><a class="brand" href="./">Course Study Book</a><div class="header-actions"><div class="search-shell"><input id="search" type="search" placeholder="Search notes…" aria-label="Search course notes" aria-controls="results" aria-expanded="false" autocomplete="off"><div id="results" class="search-results" role="listbox" hidden></div></div><button id="theme-toggle" type="button" aria-label="Switch color theme"></button></div></header>
+  <header><a class="brand" href="./">Course Study Book</a><div class="header-actions"><div class="search-shell"><input id="search" type="search" placeholder="Search notes…" aria-label="Search course notes" aria-controls="results" aria-expanded="false" autocomplete="off"><div id="results" class="search-results" role="listbox" hidden></div></div><a class="print-book-link" href="print/">Print / Save PDF</a><button id="theme-toggle" type="button" aria-label="Switch color theme"></button></div></header>
   <div class="layout">
     <aside><a href="guide/">Using this book</a><h2>Weekly chapters</h2>${nav}</aside>
     <main>${body}</main>
   </div>
   <script defer src="assets/book.js"></script>
+</body>
+</html>\n`
+}
+
+function printBookTemplate({ title, body }) {
+  const safeTitle = escapeHtml(title)
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <base href="../">
+  <title>${safeTitle} · Print · Course Study Book</title>
+  <link rel="stylesheet" href="assets/style.css">
+  <link rel="stylesheet" href="assets/katex/katex.min.css">
+</head>
+<body>
+  <header class="print-controls"><a class="brand" href="./">Back to book</a><button type="button" onclick="window.print()">Print / Save as PDF</button></header>
+  <main class="print-book">${body}</main>
 </body>
 </html>\n`
 }
@@ -245,6 +264,20 @@ export function buildBook(root = repoRoot, destination = path.join(root, '.study
     if (slideEntries.length > 0) searchIndex.push(...slideEntries)
     else searchIndex.push({ title, context: 'Course page', path: page.path || './', text: plainText(body).slice(0, 30000) })
   }
+
+  const courseTitle = titleFrom(fs.readFileSync(path.join(root, 'notes', 'index.md'), 'utf8'), 'Course Study Book')
+  const printSections = pages
+    .filter((page) => page.path !== '')
+    .map((page) => {
+      const sourceText = fs.readFileSync(page.source, 'utf8')
+      const title = titleFrom(sourceText, page.fallback)
+      return `<section class="print-chapter" aria-label="${escapeHtml(title)}">${markdown.render(stripFrontmatter(sourceText), { sourcePath: page.source })}</section>`
+    })
+    .join('\n')
+  const printBody = `<section class="print-title"><p>Course Study Book</p><h1>${escapeHtml(courseTitle)}</h1><p>Generated ${new Date().toLocaleDateString('en-CA')}</p></section>${printSections}`
+  const printDir = path.join(destination, 'print')
+  fs.mkdirSync(printDir, { recursive: true })
+  fs.writeFileSync(path.join(printDir, 'index.html'), printBookTemplate({ title: courseTitle, body: printBody }), 'utf8')
 
   copyDirectory(path.join(root, 'notes', 'public', 'generated'), path.join(destination, 'generated'))
   copyDirectory(path.join(root, 'node_modules', 'katex', 'dist', 'fonts'), path.join(destination, 'assets', 'katex', 'fonts'))
