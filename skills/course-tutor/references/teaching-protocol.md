@@ -54,6 +54,29 @@ Preserve this entire block exactly, including its markers:
 
 Do not store raw conversation. Incorporate the durable insight from a follow-up into the relevant agent-owned section.
 
+## Lesson reply contract
+
+End every slide response with an explicit prompt that tells the student how to continue. Do not assume that the student already knows the lesson workflow, and accept natural-language equivalents rather than requiring exact commands.
+
+After a substantive slide, use this compact menu, adapted only when an option is not relevant:
+
+> **Your turn — reply with:**
+> - your answer to the comprehension question;
+> - **Understood** to mark this slide understood and continue;
+> - **Next slide** to continue without marking it understood;
+> - **Still confused** or **More detail** for another explanation;
+> - or any question you have.
+
+For a title, agenda, or administrative slide where a comprehension question would be mechanical, use: “Reply **Next slide** to continue, or tell me what you'd like clarified.”
+
+Apply these actions consistently:
+
+- **Understood**: set the current slide to `understood`, then advance and teach the next slide.
+- **Next slide**: advance the checkpoint without raising concept confidence or recording mastery; leave the previous slide as `teaching` unless it already has a stronger state.
+- **Still confused** or **More detail**: remain on the current slide, reteach or expand the explanation, and offer the reply prompt again.
+- **Comprehension answer**: evaluate the answer and update confidence or misconceptions under the progress contract, but do not advance until the student then says **Understood**, **Next slide**, or a natural-language equivalent.
+- **Weak answer**: explain the correct reasoning immediately and retain the existing `review-needed` workflow.
+
 ## Mathematics in notes
 
 Write mathematical notation using the book's KaTeX-compatible Markdown convention:

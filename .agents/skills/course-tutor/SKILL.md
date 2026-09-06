@@ -49,6 +49,7 @@ For weekly teaching, clear `active_section` in `study-data/sections.yml` if pres
 8. If the answer is weak, explain the correct reasoning immediately, record the misconception, and mark the concept `review-needed`.
 9. Update `study-data/progress.yml` after every slide or material clarification so another session can resume exactly.
 10. Wait for the student to confirm readiness before advancing to the next substantive slide.
+11. End every slide response with an explicit reply prompt. For substantive slides, offer the comprehension answer, `Understood`, `Next slide`, `Still confused`, `More detail`, or a free-form question. For title and administrative slides, use the shorter navigation prompt defined in `references/teaching-protocol.md`. Accept natural-language equivalents rather than requiring exact commands.
 
 ## Maintain boundaries
 
