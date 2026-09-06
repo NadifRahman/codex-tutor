@@ -137,3 +137,19 @@ Do not commit `materials/local/`, `.study-cache/`, rendered slide images, depend
 For the software design, state files, data flow, and extension points, read [Technical architecture](docs/architecture.md).
 
 For the slide-teaching model defaults and future update procedure, read [Course-tutor model policy](docs/model-policy.md).
+
+## Open study sections
+
+Weekly lectures remain the main workflow. Open study sections use the same `course-tutor` skill. Invoke it explicitly when starting or resuming a section:
+
+> Use $course-tutor to create a Midterm prep section using weeks 1–5 and the practice exam. Help me work through concepts and keep detailed notes as we talk.
+
+> Use $course-tutor to resume my Midterm prep section.
+
+> Use $course-tutor to start a Course connections section. Let me choose the topics and keep concise notes.
+
+Codex creates authored Markdown under `notes/sections/<name>/index.md`, integrating useful explanations and worked examples after substantive exchanges. No week or PDF is required. Larger sections can have additional pages linked from their index. Personal-note blocks are protected.
+
+Sections appear automatically under **Study sections** in the book, in search, and in Print / Save PDF. Run `npm run notes:dev` for live updates, or `npm run notes:build` for a static build. Saving Markdown drives updates; chat alone does not change the book.
+
+Each section's purpose, references, current topic, and next step are saved in `study-data/sections.yml`. This keeps the weekly slide checkpoint intact. An unqualified resume returns to the active section; explicitly asking to resume weekly study switches back to the lecture. Notes and section state can be versioned alongside existing course notes.

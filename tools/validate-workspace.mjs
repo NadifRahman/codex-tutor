@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import { validateSections } from './lib/sections.mjs'
 import path from 'node:path'
 import { listSources, readYaml, resolveRepoPath } from './lib/workspace.mjs'
 
@@ -102,6 +103,8 @@ if (fs.existsSync(notesRoot)) {
     }
   }
 }
+
+errors.push(...validateSections(process.cwd(), sources.map(source => source.id)))
 
 for (const warning of warnings) console.warn(`warning: ${warning}`)
 for (const error of errors) console.error(`error: ${error}`)

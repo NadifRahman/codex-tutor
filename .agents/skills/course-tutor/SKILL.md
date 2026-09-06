@@ -1,6 +1,6 @@
 ---
 name: course-tutor
-description: Import and prepare course materials, or teach technical and STEM lectures interactively slide by slide while maintaining source-grounded notes, comprehension state, assessment priorities, and resumable progress. Use for requests to organize course files, prepare a week, teach or explain slides, resume a lesson, review weak concepts, update assessment analysis, or practise past exams and homework.
+description: Import and prepare course materials, or teach technical and STEM lectures interactively slide by slide while maintaining source-grounded notes, comprehension state, assessment priorities, and resumable progress. Use for requests to organize course files, prepare a week, teach or explain slides, resume a lesson, review weak concepts, update assessment analysis, practise past exams and homework, or create and resume open-ended course study sections.
 ---
 
 # Course Tutor
@@ -25,13 +25,17 @@ Act as the student's professor. Teach for understanding; do not merely summarize
 
 ## Route the request
 
+- For **open discussion, named study notes, or exam-prep sections**, read `references/study-sections.md`. Maintain authored notes as the discussion develops without applying the slide loop.
+
 - For **import or organize materials**, read `references/material-import.md` and follow its inbox, classification, privacy, and transactional import workflow.
 - For **prepare week N**, run `npm run study:prepare -- --week N`, inspect warnings, and report the prepared lectures and slides.
 - For **teach week N**, prepare the week if needed, establish or resume its checkpoint, and follow the interactive lesson loop below.
-- For **resume**, use the exact active checkpoint in `study-data/progress.yml` and briefly recap the preceding concept.
+- For **resume**, first check `study-data/sections.yml`: a named section or non-null `active_section` follows `references/study-sections.md`; otherwise use the exact active checkpoint in `study-data/progress.yml` and briefly recap the preceding concept.
 - For **review weak concepts**, select `review-needed` concepts by priority, reteach them from their cited slides, and check comprehension.
 - For **update the assessment map**, inspect extracted assessment pages and update `study-data/assessment-map.md` with topics, skills, frequency, depth, and page references. Do not copy full questions.
 - For **practise an assessment**, present one question at a time. Allow either an attempt or an immediate worked solution, according to the student's request.
+
+For weekly teaching, clear `active_section` in `study-data/sections.yml` if present, preserving section history.
 
 ## Run the interactive lesson loop
 

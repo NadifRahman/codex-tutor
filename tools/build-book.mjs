@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import YAML from 'yaml'
+import { sectionPages } from './lib/sections.mjs'
 import { createMarkdownRenderer } from './lib/markdown.mjs'
 import { repoRoot, stripFrontmatter } from './lib/workspace.mjs'
 
@@ -72,7 +73,7 @@ function conceptLabel(id) {
   return id.split('-').map((word) => acronyms.has(word) ? word.toUpperCase() : `${word[0].toUpperCase()}${word.slice(1)}`).join(' ')
 }
 
-function dashboardHtml({ root, chapterFiles }) {
+function dashboardHtml({ root, chapterFiles, sections }) {
   const course = readYamlOr(root, 'course.yml', {}).course ?? {}
   const progress = readYamlOr(root, path.join('study-data', 'progress.yml'), {})
   const sources = readYamlOr(root, 'sources.yml', {}).sources ?? []
@@ -100,11 +101,21 @@ function dashboardHtml({ root, chapterFiles }) {
     : Number.isInteger(configuredWeek) ? configuredWeek : weeks[0]?.week
   const activeChapter = weeks.find((week) => week.week === activeWeek)
   const checkpointLink = slideLink(checkpoint.slide_id, activeWeek)
-  const resumeHref = checkpointLink && activeChapter ? checkpointLink : activeChapter?.path ?? 'guide/'
-  const resumeTitle = checkpointLink && activeChapter ? `Resume at ${slideLabel(checkpoint.slide_id)}` : activeChapter ? `Open Week ${activeWeek}` : 'Set up the course'
-  const resumeDetail = checkpointLink && activeChapter
+  let resumeHref = checkpointLink && activeChapter ? checkpointLink : activeChapter?.path ?? 'guide/'
+  let resumeTitle = checkpointLink && activeChapter ? `Resume at ${slideLabel(checkpoint.slide_id)}` : activeChapter ? `Open Week ${activeWeek}` : 'Set up the course'
+  let resumeDetail = checkpointLink && activeChapter
     ? `Week ${activeWeek} · ${escapeHtml(checkpoint.source_id ?? 'lecture')}`
     : activeChapter ? `${activeChapter.total} prepared slides` : 'Prepare a week to begin building your dashboard.'
+
+  const sectionState = readYamlOr(root, 'study-data/sections.yml', {})
+  const activeSection = sectionState.sections?.[sectionState.active_section]
+  const activePage = typeof activeSection?.page === 'string'
+    ? sections.find(page => page.source === path.resolve(root, activeSection.page)) : null
+  if (activePage) {
+    resumeHref = activePage.path
+    resumeTitle = `Resume ${activeSection.title || activePage.title}`
+    resumeDetail = escapeHtml(activeSection.current_topic || 'Open study section')
+  }
 
   const totals = weeks.reduce((sum, week) => {
     sum.slides += week.total
@@ -179,11 +190,12 @@ function dashboardHtml({ root, chapterFiles }) {
   </section>`
 }
 
-function pageTemplate({ title, body, currentPath, chapterLinks }) {
+function pageTemplate({ title, body, currentPath, chapterLinks, sections }) {
   const safeTitle = escapeHtml(title)
   const depth = currentPath.split('/').filter(Boolean).length
   const rootPrefix = depth === 0 ? './' : '../'.repeat(depth)
   const nav = chapterLinks.map((chapter) => `<a href="${chapter.path}"${currentPath === chapter.path ? ' aria-current="page"' : ''}>${escapeHtml(chapter.title)}</a>`).join('\n')
+  const sectionNav = sections.length ? '<h2>Study sections</h2>' + sections.map(page => `<a href="${page.path}"${currentPath === page.path ? ' aria-current="page"' : ''}>${escapeHtml(page.title)}</a>`).join('\n') : ''
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -205,7 +217,7 @@ function pageTemplate({ title, body, currentPath, chapterLinks }) {
 <body>
   <header><a class="brand" href="./">Course Study Book</a><div class="header-actions"><div class="search-shell"><input id="search" type="search" placeholder="Search notes…" aria-label="Search course notes" aria-controls="results" aria-expanded="false" autocomplete="off"><div id="results" class="search-results" role="listbox" hidden></div></div><a class="print-book-link" href="print/">Print / Save PDF</a><button id="theme-toggle" type="button" aria-label="Switch color theme"></button></div></header>
   <div class="layout">
-    <aside><a href="guide/">Using this book</a><h2>Weekly chapters</h2>${nav}</aside>
+    <aside><a href="guide/">Using this book</a><h2>Weekly chapters</h2>${nav}${sectionNav}</aside>
     <main>${body}</main>
   </div>
   <script defer src="assets/book.js"></script>
@@ -245,24 +257,41 @@ export function buildBook(root = repoRoot, destination = path.join(root, '.study
     path: `chapters/${name.replace('.md', '')}/`
   }))
 
+  const sections = sectionPages(root)
   const pages = [
     { source: path.join(root, 'notes', 'index.md'), path: '', fallback: 'Course Study Book' },
     { source: path.join(root, 'notes', 'guide.md'), path: 'guide/', fallback: 'Using this book' },
-    ...chapterFiles.map((name) => ({ source: path.join(chapterDir, name), path: `chapters/${name.replace('.md', '')}/`, fallback: name }))
+    ...chapterFiles.map((name) => ({ source: path.join(chapterDir, name), path: `chapters/${name.replace('.md', '')}/`, fallback: name })),
+    ...sections
   ]
+  const pageRoutes = new Map(pages.map(page => [path.resolve(page.source), page.path || './']))
+  const renderPage = (text, page) => {
+    const renderer = createMarkdownRenderer()
+    renderer.core.ruler.after('inline', 'book-links', state => {
+      for (const block of state.tokens) for (const token of block.children ?? []) {
+        if (token.type !== 'link_open') continue
+        const href = token.attrGet('href') ?? ''
+        if (/^[a-z]+:|^\/|^#/i.test(href)) continue
+        const [file, hash] = href.split('#')
+        const route = pageRoutes.get(path.resolve(path.dirname(page.source), file))
+        if (route) token.attrSet('href', route + (hash ? `#${hash}` : ''))
+      }
+    })
+    return renderer.render(stripFrontmatter(text), { sourcePath: page.source })
+  }
   const searchIndex = []
 
   for (const page of pages) {
     const sourceText = fs.readFileSync(page.source, 'utf8')
     const title = titleFrom(sourceText, page.fallback)
-    const markdownBody = markdown.render(stripFrontmatter(sourceText), { sourcePath: page.source })
-    const body = page.path === '' ? `${dashboardHtml({ root, chapterFiles })}<section class="dashboard-about">${markdownBody}</section>` : markdownBody
+    const markdownBody = renderPage(sourceText, page)
+    const body = page.path === '' ? `${dashboardHtml({ root, chapterFiles, sections })}<section class="dashboard-about">${markdownBody}</section>` : markdownBody
     const outputDir = path.join(destination, page.path)
     fs.mkdirSync(outputDir, { recursive: true })
-    fs.writeFileSync(path.join(outputDir, 'index.html'), pageTemplate({ title, body, currentPath: page.path, chapterLinks }), 'utf8')
+    fs.writeFileSync(path.join(outputDir, 'index.html'), pageTemplate({ title, body, currentPath: page.path, chapterLinks, sections }), 'utf8')
     const slideEntries = slideSearchEntries(stripFrontmatter(sourceText), title, page.path, page.source)
     if (slideEntries.length > 0) searchIndex.push(...slideEntries)
-    else searchIndex.push({ title, context: 'Course page', path: page.path || './', text: plainText(body).slice(0, 30000) })
+    else searchIndex.push({ title, context: page.path.startsWith('sections/') ? 'Study section' : 'Course page', path: page.path || './', text: plainText(body).slice(0, 30000) })
   }
 
   const courseTitle = titleFrom(fs.readFileSync(path.join(root, 'notes', 'index.md'), 'utf8'), 'Course Study Book')
@@ -271,7 +300,7 @@ export function buildBook(root = repoRoot, destination = path.join(root, '.study
     .map((page) => {
       const sourceText = fs.readFileSync(page.source, 'utf8')
       const title = titleFrom(sourceText, page.fallback)
-      return `<section class="print-chapter" aria-label="${escapeHtml(title)}">${markdown.render(stripFrontmatter(sourceText), { sourcePath: page.source })}</section>`
+      return `<section class="print-chapter" aria-label="${escapeHtml(title)}">${renderPage(sourceText, page)}</section>`
     })
     .join('\n')
   const printBody = `<section class="print-title"><p>Course Study Book</p><h1>${escapeHtml(courseTitle)}</h1><p>Generated ${new Date().toLocaleDateString('en-CA')}</p></section>${printSections}`

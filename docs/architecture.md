@@ -117,3 +117,7 @@ The tutor may browse externally only when course sources leave a meaningful gap.
 - Add new teaching modes as separate skill workflows while preserving the note and mastery contracts.
 - Add new source types by extending manifest validation and routing without changing existing IDs.
 - Replace the static publisher with another renderer because publishing consumes canonical Markdown rather than owning it.
+
+## Authored study sections
+
+`notes/sections/` contains canonical, nonweekly Markdown. `tools/lib/sections.mjs` discovers pages recursively with index pages first and rejects duplicate routes. The book publishes these independently of chapter assembly, rewrites relative Markdown page links, and includes sections in navigation, search, print, and live input watching. Section state in optional `study-data/sections.yml` preserves independent resume context; existing weekly progress requires no migration. The tutor's `references/study-sections.md` owns the note and state contract.

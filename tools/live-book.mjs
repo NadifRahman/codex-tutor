@@ -17,7 +17,7 @@ export function inputSnapshot(root) {
       for (const name of fs.readdirSync(absolute).sort()) visit(path.join(relative, name))
     } else entries.push(`${relative}:${stat.size}:${stat.mtimeMs}:${stat.ctimeMs}`)
   }
-  for (const relative of ['course.yml', 'sources.yml', 'study-data', 'notes/index.md', 'notes/guide.md', 'notes/slides', 'notes/public', 'tools/site']) visit(relative)
+  for (const relative of ['course.yml', 'sources.yml', 'study-data', 'notes/index.md', 'notes/guide.md', 'notes/slides', 'notes/sections', 'notes/public', 'tools/site']) visit(relative)
   const sources = path.join(root, '.study-cache', 'sources')
   if (fs.existsSync(sources)) for (const id of fs.readdirSync(sources).sort()) visit(path.join('.study-cache', 'sources', id, 'manifest.json'))
   return entries.join('\n')

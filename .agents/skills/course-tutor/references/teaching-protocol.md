@@ -71,3 +71,7 @@ Write mathematical notation using the book's KaTeX-compatible Markdown conventio
 Use slide states `unseen`, `teaching`, `understood`, and `review-needed`. Keep the checkpoint on the slide currently being discussed. For each concept, retain related slide IDs, confidence from 0 to 3, concise misconceptions, the last review timestamp, and review priority.
 
 When the student gives a weak answer, explain immediately. Ask a short new check when appropriate, but do not trap the student in an endless Socratic exchange.
+
+## Open study mode
+
+For course discussions and named study sections, follow [Study sections](study-sections.md). The slide loop and slide-note headings apply to weekly teaching; open study retains shared citation, math, personal-note, and evidence-based mastery rules while following the student's topic choices.
