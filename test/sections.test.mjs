@@ -3,8 +3,20 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
+import { fileURLToPath } from 'node:url'
+import YAML from 'yaml'
 import { sectionPages, validateSections } from '../tools/lib/sections.mjs'
 import { assembleChapters } from '../tools/assemble-chapters.mjs'
+
+test('repository includes a valid section state file', () => {
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+  const statePath = path.join(root, 'study-data', 'sections.yml')
+  assert.equal(fs.existsSync(statePath), true)
+  const state = YAML.parse(fs.readFileSync(statePath, 'utf8'))
+  assert.equal(state?.version, 1)
+  assert.ok(state?.active_section === null || typeof state?.active_section === 'string')
+  assert.ok(state?.sections && typeof state.sections === 'object' && !Array.isArray(state.sections))
+})
 
 test('sections retain authored content through assembly and validate independent resume state', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'course-sections-'))

@@ -124,7 +124,7 @@ Codex creates authored Markdown under `notes/sections/<name>/index.md`, integrat
 
 Sections appear automatically under **Study sections** in the book, in search, and in Print / Save PDF. Run `npm run notes:dev` for live updates, or `npm run notes:build` for a static build. Saving Markdown drives updates; chat alone does not change the book.
 
-Each section's purpose, references, current topic, and next step are saved in `study-data/sections.yml`. This keeps the weekly slide checkpoint intact. An unqualified resume returns to the active section; explicitly asking to resume weekly study switches back to the lecture. Notes and section state can be versioned alongside existing course notes.
+Each section's purpose, references, current topic, and next step are saved in `study-data/sections.yml`, which starts with an empty versioned state. This keeps the weekly slide checkpoint intact. An unqualified resume returns to the active section; explicitly asking to resume weekly study switches back to the lecture. Notes and section state can be versioned alongside existing course notes.
 
 ## Read the course book
 

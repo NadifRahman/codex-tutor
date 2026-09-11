@@ -23,7 +23,15 @@ Use this mode for a named course discussion, exam preparation, synthesis, or oth
 
 ## Independent resume state
 
-Keep `study-data/progress.yml`'s weekly checkpoint intact during section work. Store section context in `study-data/sections.yml`, creating it only when needed:
+Keep `study-data/progress.yml`'s weekly checkpoint intact during section work. Store section context in `study-data/sections.yml`, which begins with this empty tracked state:
+
+```yaml
+version: 1
+active_section: null
+sections: {}
+```
+
+A populated state has this shape:
 
 ```yaml
 version: 1
