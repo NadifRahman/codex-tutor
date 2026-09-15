@@ -5,7 +5,11 @@ import { repoRoot } from './lib/workspace.mjs'
 
 const root = path.join(repoRoot, '.study-cache', 'book')
 if (!fs.existsSync(path.join(root, 'index.html'))) throw new Error('Build the book first with npm run notes:build')
-const contentTypes = { '.css': 'text/css', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png', '.woff2': 'font/woff2', '.woff': 'font/woff' }
+const contentTypes = {
+  '.css': 'text/css', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.json': 'application/json',
+  '.png': 'image/png', '.svg': 'image/svg+xml', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp',
+  '.gif': 'image/gif', '.avif': 'image/avif', '.woff2': 'font/woff2', '.woff': 'font/woff'
+}
 
 const server = http.createServer((request, response) => {
   const requestPath = decodeURIComponent(new URL(request.url, 'http://localhost').pathname)
@@ -25,4 +29,3 @@ const server = http.createServer((request, response) => {
 
 const port = Number(process.env.PORT ?? 4173)
 server.listen(port, '127.0.0.1', () => console.log(`Course book: http://127.0.0.1:${port}`))
-

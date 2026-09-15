@@ -3,8 +3,40 @@ import http from 'node:http'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { repoRoot } from './lib/workspace.mjs'
+import { ensureCleanBase, readAnnotationState, saveAnnotations } from './lib/annotations.mjs'
 import { assembleChapters } from './assemble-chapters.mjs'
 import { buildBook } from './build-book.mjs'
+
+const contentTypes = {
+  '.css': 'text/css', '.html': 'text/html; charset=utf-8', '.js': 'application/javascript', '.json': 'application/json',
+  '.png': 'image/png', '.svg': 'image/svg+xml', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp',
+  '.gif': 'image/gif', '.avif': 'image/avif', '.woff2': 'font/woff2', '.woff': 'font/woff'
+}
+
+function json(response, status, value) {
+  response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' })
+  response.end(`${JSON.stringify(value)}\n`)
+}
+
+async function readJson(request, maximumBytes = 20 * 1024 * 1024) {
+  const chunks = []
+  let size = 0
+  for await (const chunk of request) {
+    size += chunk.length
+    if (size > maximumBytes) {
+      const error = new Error('Annotation request is too large')
+      error.status = 413
+      throw error
+    }
+    chunks.push(chunk)
+  }
+  try { return JSON.parse(Buffer.concat(chunks).toString('utf8')) }
+  catch {
+    const error = new Error('Request body must be valid JSON')
+    error.status = 400
+    throw error
+  }
+}
 
 // Polling handles editor atomic saves across supported platforms.
 export function inputSnapshot(root) {
@@ -17,7 +49,7 @@ export function inputSnapshot(root) {
       for (const name of fs.readdirSync(absolute).sort()) visit(path.join(relative, name))
     } else entries.push(`${relative}:${stat.size}:${stat.mtimeMs}:${stat.ctimeMs}`)
   }
-  for (const relative of ['course.yml', 'sources.yml', 'study-data', 'notes/index.md', 'notes/guide.md', 'notes/slides', 'notes/sections', 'notes/public', 'tools/site']) visit(relative)
+  for (const relative of ['course.yml', 'sources.yml', 'study-data', 'notes/index.md', 'notes/guide.md', 'notes/slides', 'notes/sections', 'notes/annotations', 'notes/public', 'tools/site']) visit(relative)
   const sources = path.join(root, '.study-cache', 'sources')
   if (fs.existsSync(sources)) for (const id of fs.readdirSync(sources).sort()) visit(path.join('.study-cache', 'sources', id, 'manifest.json'))
   return entries.join('\n')
@@ -51,7 +83,6 @@ export function createLiveBookServer({ root = repoRoot, interval = 500 } = {}) {
   }
   let previous = inputSnapshot(root)
   rebuild()
-  const contentTypes = { '.css': 'text/css', '.html': 'text/html; charset=utf-8', '.js': 'application/javascript', '.json': 'application/json', '.png': 'image/png', '.woff2': 'font/woff2', '.woff': 'font/woff' }
   const server = http.createServer((request, response) => {
     let requestPath
     try { requestPath = decodeURIComponent(new URL(request.url, 'http://localhost').pathname) }
@@ -68,6 +99,38 @@ export function createLiveBookServer({ root = repoRoot, interval = 500 } = {}) {
       response.end(fs.readFileSync(new URL('./site/live-refresh.js', import.meta.url)))
       return
     }
+    if (requestPath === '/__live/annotation.js' || requestPath === '/__live/annotation.css') {
+      const name = requestPath.endsWith('.js') ? 'annotation.js' : 'annotation.css'
+      response.writeHead(200, { 'Content-Type': contentTypes[path.extname(name)], 'Cache-Control': 'no-store' })
+      response.end(fs.readFileSync(new URL(`./site/${name}`, import.meta.url)))
+      return
+    }
+    if (requestPath === '/__annotations/state' && request.method === 'GET') {
+      const slide = new URL(request.url, 'http://localhost').searchParams.get('slide')
+      readAnnotationState(root, slide).then(value => json(response, 200, value)).catch(cause => json(response, 400, { error: cause.message }))
+      return
+    }
+    if (requestPath === '/__annotations/base' && request.method === 'GET') {
+      try {
+        const slide = new URL(request.url, 'http://localhost').searchParams.get('slide')
+        const paths = ensureCleanBase(root, slide)
+        response.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'no-store' })
+        fs.createReadStream(paths.basePath).pipe(response)
+      } catch (cause) { json(response, 400, { error: cause.message }) }
+      return
+    }
+    if (requestPath === '/__annotations/save' && request.method === 'POST') {
+      ;(async () => {
+        try {
+          const body = await readJson(request)
+          const value = await saveAnnotations(root, body.slide, body)
+          json(response, 200, value)
+        } catch (cause) {
+          json(response, cause.code === 'STALE_BASE' ? 409 : cause.status ?? 400, { error: cause.message })
+        }
+      })()
+      return
+    }
     if (!servedRoot) {
       response.writeHead(503, { 'Content-Type': 'text/html', 'Cache-Control': 'no-store' }).end('<!doctype html><p>Waiting for a successful book build. Check the terminal for errors.</p><script defer src="/__live/client.js"></script>')
       return
@@ -79,7 +142,7 @@ export function createLiveBookServer({ root = repoRoot, interval = 500 } = {}) {
     try {
       if (fs.statSync(target).isDirectory()) target = path.join(target, 'index.html')
       let body = fs.readFileSync(target)
-      if (path.extname(target) === '.html') body = body.toString().replace('</body>', `<script defer src="/__live/client.js" data-revision="${session}:${revision}"></script></body>`)
+      if (path.extname(target) === '.html') body = body.toString().replace('</head>', '<link rel="stylesheet" href="/__live/annotation.css"></head>').replace('</body>', `<script defer src="/__live/annotation.js"></script><script defer src="/__live/client.js" data-revision="${session}:${revision}"></script></body>`)
       response.writeHead(200, { 'Content-Type': contentTypes[path.extname(target)] ?? 'application/octet-stream', 'Cache-Control': 'no-store' })
       response.end(body)
     } catch { response.writeHead(404).end('Not found') }

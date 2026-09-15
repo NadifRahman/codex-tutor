@@ -75,6 +75,8 @@ The original PDF is never modified. A content hash identifies cached work, so an
 
 Each slide Markdown file is canonical. It contains agent-managed teaching sections and a marker-delimited personal section. Its slide image uses a filesystem-relative path so the image works in an editor's Markdown preview. Chapter assembly rewrites that reference to the `/generated/` site path. Weekly chapter files, slide PNGs, extracted source pages, and HTML are derived and ignored by Git. A small repository-owned generator recognizes math before ordinary Markdown rules, renders it server-side with KaTeX, renders the remaining Markdown with Markdown-it, builds a local search index, and serves the output with Node's HTTP server. Invalid or unclosed math fails the build with its source file and line instead of silently appearing as raw text. It intentionally avoids a large web framework.
 
+Slide annotation is non-destructive. PDF preparation writes a clean base PNG under `.study-cache/sources/<source-id>/base/`. The live book stores normalized vector objects in `notes/annotations/<source-id>/slide-NNN.json` and composites them onto the existing `notes/public/generated/<source-id>/slide-NNN.png`. Consequently Markdown and every book output continue to use one stable image path, while annotations remain editable and can be reapplied after preparation. Save requests are local-only, path constrained, size limited, atomically written, and guarded by the clean image hash to prevent stale tabs from overwriting a changed slide.
+
 This division makes individual explanations easy to revise and merge while still producing a continuous book for reading.
 
 ### Learning state

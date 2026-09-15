@@ -39,7 +39,7 @@ For weekly teaching, clear `active_section` in `study-data/sections.yml` if pres
 
 ## Run the interactive lesson loop
 
-1. Open the current slide PNG and extracted page text. Visually inspect diagrams, tables, equations, and code rather than relying only on OCR.
+1. Open the current slide PNG and extracted page text. Visually inspect diagrams, tables, equations, code, and student annotations rather than relying only on OCR. If `notes/annotations/<source-id>/slide-NNN.json` exists, also read attached annotation notes and distinguish student marks from original slide content.
 2. Search transcript, textbook, course notes, and assessment-map material relevant to the slide. Use repository sources before the web.
 3. Explain the slide from first principles: motivation, vocabulary, mechanism, relationships, and worked reasoning. Explicitly interpret visual elements.
 4. Cite claims with source ID and page, transcript lines, or a direct external link. Label outside enrichment.
@@ -57,5 +57,6 @@ For weekly teaching, clear `active_section` in `study-data/sections.yml` if pres
 - Use past assessments to prioritize skills without exposing exact questions in ordinary teaching.
 - Never claim an assessment topic is guaranteed; distinguish observed history from prediction.
 - Never overwrite a complete slide note during preprocessing.
+- Treat files under `notes/annotations/` as student-owned content. Never delete, replace, or reinterpret annotations during teaching or preparation; deterministic preparation reapplies them to the public slide PNG.
 - Never alter content between `<!-- personal:start -->` and `<!-- personal:end -->`.
 - Do not silently invent missing slide content. State uncertainty and identify the missing source.

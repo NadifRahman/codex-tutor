@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { createWorker } from 'tesseract.js'
+import { applyStoredAnnotations } from './lib/annotations.mjs'
 import { extractPage, openPdf, renderPage } from './lib/pdf.mjs'
 import { attemptOcr } from './lib/ocr.mjs'
 import {
@@ -64,7 +65,8 @@ function existingCacheIsComplete(source, hash) {
     const textExists = fs.existsSync(resolveRepoPath(`.study-cache/sources/${source.id}/text/page-${pad(page, 3)}.txt`))
     const imageRequired = source.type === 'lecture'
     const imageExists = fs.existsSync(resolveRepoPath(`notes/public/generated/${source.id}/slide-${pad(page, 3)}.png`))
-    return textExists && (!imageRequired || imageExists)
+    const baseExists = fs.existsSync(resolveRepoPath(`.study-cache/sources/${source.id}/base/slide-${pad(page, 3)}.png`))
+    return textExists && (!imageRequired || (imageExists && baseExists))
   })
 }
 
@@ -152,8 +154,9 @@ async function preparePdf(source, filePath) {
       let renderedPng
 
       if (source.type === 'lecture') {
-        imagePath = resolveRepoPath(`notes/public/generated/${source.id}/slide-${pad(pageNumber, 3)}.png`)
+        imagePath = path.join(cacheDir, 'base', `slide-${pad(pageNumber, 3)}.png`)
         renderedPng = await renderPage(page, imagePath)
+        await applyStoredAnnotations(repoRoot, `generated/${source.id}/slide-${pad(pageNumber, 3)}.png`)
         if (createSlideNote(source, pageNumber)) createdNotes += 1
       } else if (source.type === 'assessment') {
         imagePath = path.join(cacheDir, 'images', `${pageName}.png`)

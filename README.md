@@ -132,6 +132,14 @@ Run `npm run notes:dev` and open the local URL shown in the terminal. The book i
 
 Leave this command running while studying. It watches saved slide Markdown, the home and guide pages, study progress, course/source configuration, prepared images, and source manifests. After edits settle, it rebuilds the book and refreshes open browser tabs automatically, usually within a second plus build time. Your current page and approximate reading position are preserved. A small status indicator shows connection or build problems.
 
+### Annotate slides with a mouse or stylus
+
+While `npm run notes:dev` is running, every prepared slide has an **Annotate slide** button. The editor supports pressure-sensitive pen strokes, highlighting, whole-stroke erasing, lines, arrows, rectangles, ellipses, text, colours, fills, opacity, thickness, attached notes, selection, moving, resizing, undo/redo, zoom, and draft recovery. Wacom and other styluses use browser Pointer Events; enable Windows Ink in the tablet driver when pressure is not detected.
+
+Saving keeps three layers: the clean PDF render under `.study-cache/`, editable vector data under `notes/annotations/`, and the flattened PNG at the existing `notes/public/generated/` path. Markdown previews, the live book, static builds, printing, and the tutor therefore see the annotation without changing slide-note links. Re-preparing a PDF reapplies saved annotations. The editor refuses a stale save if its clean slide changed while the editor was open.
+
+Annotation JSON is small, human-readable, and intended to be versioned. Clean slide bases and flattened PNGs remain generated files. The static preview command is read-only; annotation controls are available only through the local live server.
+
 If an edit temporarily breaks the build (for example, an unfinished equation), the last successful book stays available. Fix and save the file to retry automatically. Newly added and deleted slide notes are included. Generated chapters and book output do not trigger rebuild loops. Stop the server with Ctrl+C. `npm run notes:preview` still serves a previously built book without watching.
 
 Live refresh responds to files saved in this local repository. A conversation must actually update these Markdown files for the book to change; chat messages alone are not inputs to the book.

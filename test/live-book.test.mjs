@@ -4,6 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import vm from 'node:vm'
+import { createCanvas } from '@napi-rs/canvas'
 import { createLiveBookServer, inputSnapshot } from '../tools/live-book.mjs'
 
 async function until(check) {
@@ -110,6 +111,48 @@ test('snapshot excludes derived chapters and book output', () => {
     fs.writeFileSync(path.join(root, 'study-data/progress.yml'), 'slides: {}')
     assert.notEqual(inputSnapshot(root), before)
   } finally { fs.rmSync(root, { recursive: true, force: true }) }
+})
+
+test('live server exposes the annotation editor and safely saves slide annotations', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'course-live-annotations-'))
+  let server
+  try {
+    for (const directory of ['notes/slides/week-01/lecture-a', 'notes/public/generated/lecture-a', 'tools/site', 'node_modules', 'study-data']) fs.mkdirSync(path.join(root, directory), { recursive: true })
+    fs.symlinkSync(path.join(process.cwd(), 'node_modules/katex'), path.join(root, 'node_modules/katex'), process.platform === 'win32' ? 'junction' : 'dir')
+    for (const name of ['style.css', 'book.js']) fs.copyFileSync(path.join(process.cwd(), 'tools/site', name), path.join(root, 'tools/site', name))
+    fs.writeFileSync(path.join(root, 'notes/index.md'), '# Test\n')
+    fs.writeFileSync(path.join(root, 'notes/guide.md'), '# Guide\n')
+    fs.writeFileSync(path.join(root, 'course.yml'), 'course:\n  code: TEST\n')
+    fs.writeFileSync(path.join(root, 'sources.yml'), 'sources: []\n')
+    fs.writeFileSync(path.join(root, 'study-data/progress.yml'), 'slides: {}\n')
+    fs.writeFileSync(path.join(root, 'notes/slides/week-01/lecture-a/slide-001.md'), '# Slide 1\n\n![Original slide](../../../public/generated/lecture-a/slide-001.png)\n')
+    const slide = createCanvas(160, 90)
+    slide.getContext('2d').fillRect(0, 0, 160, 90)
+    fs.writeFileSync(path.join(root, 'notes/public/generated/lecture-a/slide-001.png'), slide.toBuffer('image/png'))
+    server = createLiveBookServer({ root, interval: 30 })
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+    const base = `http://127.0.0.1:${server.address().port}`
+    const html = await (await fetch(`${base}/chapters/week-01/`)).text()
+    assert.match(html, /__live\/annotation\.js/)
+    assert.match(html, /__live\/annotation\.css/)
+    assert.equal((await fetch(`${base}/__live/annotation.js`)).status, 200)
+    const stateResponse = await fetch(`${base}/__annotations/state?slide=generated%2Flecture-a%2Fslide-001.png`)
+    const state = await stateResponse.json()
+    assert.equal(state.width, 160)
+    assert.equal((await fetch(`${base}/__annotations/base?slide=generated%2Flecture-a%2Fslide-001.png`)).headers.get('content-type'), 'image/png')
+    const saveResponse = await fetch(`${base}/__annotations/save`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...state, objects: [{ id: 'line', type: 'line', color: '#ff0000', width: .02, opacity: 1, x1: .1, y1: .1, x2: .9, y2: .9 }] })
+    })
+    assert.equal(saveResponse.status, 200)
+    assert.ok(fs.existsSync(path.join(root, 'notes/annotations/lecture-a/slide-001.json')))
+    const staleResponse = await fetch(`${base}/__annotations/save`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...state, baseHash: 'stale', objects: [] }) })
+    assert.equal(staleResponse.status, 409)
+    assert.equal((await fetch(`${base}/__annotations/state?slide=..%2Fsecret.png`)).status, 400)
+  } finally {
+    if (server) await new Promise(resolve => server.close(resolve))
+    fs.rmSync(root, { recursive: true, force: true })
+  }
 })
 
 test('browser refresh retains the slide offset and ignores failed builds', () => {

@@ -37,6 +37,8 @@ Do not force every heading when a slide does not need it. Prefer a coherent less
 
 Keep the existing frontmatter and image. Revise these agent-owned sections as needed:
 
+The displayed slide PNG may contain student annotations. When the matching `notes/annotations/<source-id>/slide-NNN.json` exists, preserve it, use any attached `note` fields as student context, and clearly distinguish handwritten or added marks from the source slide itself.
+
 - `## Explanation`
 - `## Walkthrough`
 - `## Connections and exam relevance`
