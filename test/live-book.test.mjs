@@ -162,6 +162,7 @@ test('live server exposes the annotation editor and safely saves slide annotatio
 test('browser refresh waits for annotation editing to close and retains the slide offset', () => {
   const source = fs.readFileSync(new URL('../tools/site/live-refresh.js', import.meta.url), 'utf8')
   let events, reloads = 0, onload, scroll
+  const notifications = []
   const saved = new Map()
   const anchor = { id: 'slide-1', getBoundingClientRect: () => ({ top: -80 }) }
   const modal = { hidden: false }
@@ -173,8 +174,10 @@ test('browser refresh waits for annotation editing to close and retains the slid
     document: {
       currentScript: { dataset: { revision: 'v1' } }, createElement: () => ({ setAttribute() {}, style: {} }), body: { append() {} },
       querySelector: () => modal, querySelectorAll: () => [anchor], getElementById: () => anchor,
-      addEventListener: (name, fn) => listeners.set(name, fn)
+      addEventListener: (name, fn) => listeners.set(name, fn),
+      dispatchEvent: event => notifications.push(event.detail.revision)
     },
+    CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail } },
     EventSource: class { constructor() { events = this } }
   }
   const update = (revision, error = false) => events.onmessage({ data: JSON.stringify({ revision, error }) })
@@ -183,8 +186,10 @@ test('browser refresh waits for annotation editing to close and retains the slid
   assert.equal(reloads, 0)
   update('v2')
   update('v3')
+  update('v3')
   update('v3', true)
   assert.equal(reloads, 0, 'an open editor must not be interrupted')
+  assert.deepEqual(notifications, ['v2', 'v3'], 'each successful revision should refresh notes once')
   modal.hidden = true
   listeners.get('annotation-editor-closed')()
   assert.equal(reloads, 1)
@@ -198,6 +203,7 @@ test('browser refresh waits for annotation editing to close and retains the slid
   assert.equal(saved.size, 0)
   update('v4', true)
   assert.equal(reloads, 1, 'failed builds must not reload')
+  assert.deepEqual(notifications, ['v2', 'v3'], 'failed builds must not change the notes')
   update('v4')
   assert.equal(reloads, 2, 'refresh resumes immediately when the editor is closed')
 })

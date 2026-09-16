@@ -33,8 +33,11 @@
     status.textContent = update.error ? 'Notes could not rebuild. Check the terminal; your last working book is still available.' : 'Live refresh connected'
     if (revision === undefined) revision = update.revision
     else if (!update.error && revision !== update.revision) {
+      const freshRevision = pendingRevision !== update.revision
       pendingRevision = update.revision
-      refreshIfReady()
+      if (editorOpen()) {
+        if (freshRevision) document.dispatchEvent(new CustomEvent('course-book-rebuilt', { detail: { revision: update.revision } }))
+      } else refreshIfReady()
     }
   }
   events.onerror = () => { status.textContent = 'Live refresh disconnected — reconnecting…' }

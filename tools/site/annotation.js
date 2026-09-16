@@ -8,7 +8,7 @@
   const toolKeys = Object.fromEntries(Object.entries(shortcuts).map(([key, tool]) => [tool, key.toUpperCase()]))
   const preferencesKey = `course-tutor-annotation-settings:${document.currentScript?.dataset.courseId || location.pathname}`
   let modal, canvas, context, stage, status, colorInput, fillInput, fillEnabled, widthInput, opacityInput, pressureInput
-  let notesContent, notesToggle
+  let notesPanel, notesContent, notesUpdate, notesToggle, activeSlideId, notesRequestToken = 0
   let sourceImage, documentState, slidePath, sourceElement, selected = -1, activeTool = 'pen', gesture = null, penActive = false
   let history = [], future = [], dirty = false, zoom = 1
 
@@ -273,11 +273,10 @@
     if (tool === 'highlighter') opacityInput.value = Math.min(Number(opacityInput.value), .38)
     if (persist) savePreferences()
   }
-  function showSlideNotes(image) {
-    const section = image.closest('.book-slide')
+  function showSlideNotes(section, missingMessage = 'No slide notes are available for this image.') {
     notesContent.replaceChildren()
     if (!section) {
-      notesContent.textContent = 'No slide notes are available for this image.'
+      notesContent.textContent = missingMessage
       return
     }
     const copy = section.cloneNode(true)
@@ -287,6 +286,26 @@
     })
     notesContent.append(...copy.childNodes)
     if (!notesContent.textContent.trim()) notesContent.textContent = 'No slide notes have been written yet.'
+  }
+  async function refreshSlideNotes() {
+    if (modal.hidden || !activeSlideId) return
+    const token = ++notesRequestToken
+    const slideId = activeSlideId
+    try {
+      const response = await fetch(`${location.pathname}${location.search}`, { cache: 'no-store' })
+      if (!response.ok) throw new Error('Could not fetch the rebuilt chapter')
+      const page = new DOMParser().parseFromString(await response.text(), 'text/html')
+      const section = [...page.querySelectorAll('.book-slide')].find(item => item.dataset.slideId === slideId)
+      if (token !== notesRequestToken || modal.hidden || activeSlideId !== slideId) return
+      const scrollTop = notesPanel.scrollTop
+      showSlideNotes(section, 'This slide is no longer in the rebuilt book.')
+      notesPanel.scrollTop = scrollTop
+      notesUpdate.hidden = true
+    } catch {
+      if (token !== notesRequestToken || modal.hidden || activeSlideId !== slideId) return
+      notesUpdate.textContent = 'Could not refresh slide notes. Showing the previous version.'
+      notesUpdate.hidden = false
+    }
   }
   function setZoom(value) {
     zoom = clamp(value, .15, 3)
@@ -328,6 +347,8 @@
     if (!force && dirty && !window.confirm('Close without saving these annotation changes? A local draft will be retained.')) return
     saveDraft()
     modal.hidden = true
+    notesRequestToken += 1
+    activeSlideId = null
     document.body.style.overflow = ''
     gesture = null
     document.dispatchEvent(new Event('annotation-editor-closed'))
@@ -363,13 +384,14 @@
       <button type="button" data-action="clear" class="annotation-danger">Clear all</button>
       <button type="button" class="annotation-notes-toggle" aria-controls="annotation-slide-notes" aria-expanded="false">Slide notes</button>
     </div><div class="annotation-workspace"><div class="annotation-stage"><canvas class="annotation-canvas" data-tool="pen"></canvas></div>
-      <aside class="annotation-notes" id="annotation-slide-notes" aria-label="Slide notes"><h2>Slide notes</h2><div class="annotation-notes-content"></div></aside></div>
+      <aside class="annotation-notes" id="annotation-slide-notes" aria-label="Slide notes"><h2>Slide notes</h2><p class="annotation-notes-update" role="status" hidden></p><div class="annotation-notes-content"></div></aside></div>
     <div class="annotation-footer"><span class="annotation-status">Ready</span><span class="annotation-shortcuts">Shortcuts: <kbd>Ctrl/⌘ S</kbd> Save · <kbd>Ctrl/⌘ Z</kbd> Undo · <kbd>Ctrl/⌘ Shift Z</kbd> Redo · <kbd>Del</kbd> Delete selected · <kbd>Esc</kbd> Close</span><div class="annotation-actions"><button type="button" data-action="cancel">Cancel</button><button type="button" class="annotation-save" data-action="save">Save</button></div></div>`
     document.body.append(modal)
     canvas = modal.querySelector('canvas'); context = canvas.getContext('2d'); stage = modal.querySelector('.annotation-stage'); status = modal.querySelector('.annotation-status')
     colorInput = modal.querySelector('.annotation-color'); fillInput = modal.querySelector('.annotation-fill'); fillEnabled = modal.querySelector('.annotation-fill-enabled')
     widthInput = modal.querySelector('.annotation-width'); opacityInput = modal.querySelector('.annotation-opacity'); pressureInput = modal.querySelector('.annotation-pressure')
-    notesContent = modal.querySelector('.annotation-notes-content'); notesToggle = modal.querySelector('.annotation-notes-toggle')
+    notesPanel = modal.querySelector('.annotation-notes'); notesContent = modal.querySelector('.annotation-notes-content')
+    notesUpdate = modal.querySelector('.annotation-notes-update'); notesToggle = modal.querySelector('.annotation-notes-toggle')
     notesToggle.addEventListener('click', () => {
       modal.dataset.notesOpen = String(modal.dataset.notesOpen !== 'true')
       notesToggle.setAttribute('aria-expanded', modal.dataset.notesOpen)
@@ -401,7 +423,11 @@
   }
   async function openEditor(image, slide) {
     sourceElement = image; slidePath = slide
-    showSlideNotes(image)
+    notesRequestToken += 1
+    activeSlideId = image.closest('.book-slide')?.dataset.slideId
+    notesPanel.scrollTop = 0
+    notesUpdate.hidden = true
+    showSlideNotes(image.closest('.book-slide'))
     modal.dataset.notesOpen = 'false'
     notesToggle.setAttribute('aria-expanded', 'false')
     status.textContent = 'Loading clean slide and editable annotations...'
@@ -462,4 +488,5 @@
   createModal()
   enhanceSlides()
   document.addEventListener('keydown', keyboard)
+  document.addEventListener('course-book-rebuilt', () => { void refreshSlideNotes() })
 })()

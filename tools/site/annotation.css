@@ -87,6 +87,8 @@
   line-height: 1.55;
 }
 .annotation-notes h2 { margin: 0 0 1rem; font-size: 1.15rem; }
+.annotation-notes-update { color: #fbbf24; font-size: .85rem; }
+.annotation-notes-update[hidden] { display: none; }
 .annotation-notes-content h3 { margin-top: 0; }
 .annotation-notes-content a { color: #93c5fd; }
 .annotation-notes-content pre, .annotation-notes-content .katex-display { max-width: 100%; overflow-x: auto; }

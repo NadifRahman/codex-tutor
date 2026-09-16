@@ -18,7 +18,7 @@ function element(initial = {}) {
   }
 }
 
-function createEditor({ courseId = 'course-a', storage = new Map(), images = [], storageUnavailable = false } = {}) {
+function createEditor({ courseId = 'course-a', storage = new Map(), images = [], storageUnavailable = false, fetchChapter } = {}) {
   const controls = {
     canvas: element({ getContext: () => ({ clearRect() {}, drawImage() {} }) }),
     '.annotation-stage': element({ clientWidth: 800, clientHeight: 600 }),
@@ -29,6 +29,8 @@ function createEditor({ courseId = 'course-a', storage = new Map(), images = [],
     '.annotation-width': element({ value: '5' }),
     '.annotation-opacity': element({ value: '1' }),
     '.annotation-pressure': element({ checked: true }),
+    '.annotation-notes': element({ scrollTop: 0 }),
+    '.annotation-notes-update': element({ hidden: true }),
     '.annotation-notes-toggle': element(),
     '.annotation-save': element(),
     '[data-action="undo"]': element(),
@@ -52,26 +54,34 @@ function createEditor({ courseId = 'course-a', storage = new Map(), images = [],
     currentScript: { dataset: { courseId } }, body: { style: {}, append() {} },
     createElement: tag => tag === 'div' ? modal : element(),
     querySelectorAll: selector => selector === 'main img' ? images : [],
-    addEventListener(name, listener) { keyboard.set(name, listener) }
+    addEventListener(name, listener) { keyboard.set(name, listener) },
+    dispatchEvent(event) { keyboard.get(event.type)?.(event) }
   }
   const localStorage = {
     getItem(key) { if (storageUnavailable) throw new Error('Storage blocked'); return storage.get(key) ?? null },
     setItem(key, value) { if (storageUnavailable) throw new Error('Storage blocked'); storage.set(key, value) }
   }
   const context = {
-    document, localStorage, location: { href: 'http://127.0.0.1:4173/chapters/week-01/', pathname: '/chapters/week-01/' },
+    document, localStorage, location: { href: 'http://127.0.0.1:4173/chapters/week-01/', pathname: '/chapters/week-01/', search: '' },
     URL, Event, Image: class { async decode() {} },
-    fetch: async () => ({ ok: true, json: async () => ({ objects: [], baseHash: 'base', width: 100, height: 100 }) }),
+    DOMParser: class { parseFromString(text) { return { querySelectorAll: () => JSON.parse(text).map(({ id, note }) => slideSection(id, note)) } } },
+    fetch: (url, options) => url.startsWith('/__annotations/')
+      ? Promise.resolve({ ok: true, json: async () => ({ objects: [], baseHash: 'base', width: 100, height: 100 }) })
+      : fetchChapter?.(url, options) ?? Promise.reject(new Error('No chapter response')),
     window: { confirm: () => false, prompt: () => null, setTimeout() {} }
   }
   vm.runInNewContext(source, context)
-  return { controls, buttons, modal, notes, keyboard, storage }
+  return { controls, buttons, modal, notes, keyboard, storage, document }
+}
+
+function slideSection(id, note) {
+  return { dataset: { slideId: id }, cloneNode: () => ({ childNodes: [{ textContent: note }], querySelectorAll: () => [] }) }
 }
 
 function slideImage(name, note) {
   const image = element({ src: `http://127.0.0.1:4173/generated/lecture-a/${name}.png` })
   image.parentElement = { insertBefore(button) { image.launch = button } }
-  image.closest = () => ({ cloneNode: () => ({ childNodes: [{ textContent: note }], querySelectorAll: () => [] }) })
+  image.closest = () => slideSection(`lecture-a-${name}`, note)
   return image
 }
 
@@ -137,4 +147,75 @@ test('the annotation panel shows the selected slide notes and keyboard hints', a
   editor.controls['.annotation-notes-toggle'].fire('click')
   assert.equal(editor.modal.dataset.notesOpen, 'true')
   assert.equal(editor.controls['.annotation-notes-toggle'].getAttribute('aria-expanded'), 'true')
+})
+
+const tick = () => new Promise(resolve => setImmediate(resolve))
+const chapter = slides => ({ ok: true, text: async () => JSON.stringify(slides) })
+
+test('a rebuilt chapter updates only the open slide notes without disturbing canvas or scroll', async () => {
+  const image = slideImage('slide-001', 'Old notes')
+  const requests = []
+  const editor = createEditor({ images: [image], fetchChapter: (url, options) => {
+    requests.push({ url, options })
+    return Promise.resolve(chapter([
+      { id: 'lecture-a-slide-002', note: 'Wrong slide' },
+      { id: 'lecture-a-slide-001', note: 'New notes' }
+    ]))
+  } })
+  image.launch.fire('click')
+  await tick()
+  editor.controls['.annotation-notes'].scrollTop = 42
+  const canvas = editor.controls.canvas
+  const before = { width: canvas.width, height: canvas.height, tool: canvas.dataset.tool }
+  editor.document.dispatchEvent(new Event('course-book-rebuilt'))
+  await tick()
+  assert.equal(editor.notes.textContent, 'New notes')
+  assert.equal(editor.controls['.annotation-notes'].scrollTop, 42)
+  assert.deepEqual({ width: canvas.width, height: canvas.height, tool: canvas.dataset.tool }, before)
+  assert.equal(editor.modal.hidden, false)
+  assert.equal(requests.length, 1)
+  assert.equal(requests[0].url, '/chapters/week-01/')
+  assert.equal(requests[0].options.cache, 'no-store')
+
+  editor.document.dispatchEvent(new Event('course-book-rebuilt'))
+  await tick()
+  assert.equal(editor.notes.textContent, 'New notes')
+})
+
+test('failed notes fetch retains content, and a removed slide is clearly reported', async () => {
+  const image = slideImage('slide-001', 'Previous notes')
+  let response = () => Promise.reject(new Error('offline'))
+  const editor = createEditor({ images: [image], fetchChapter: () => response() })
+  image.launch.fire('click')
+  await tick()
+  editor.document.dispatchEvent(new Event('course-book-rebuilt'))
+  await tick()
+  assert.equal(editor.notes.textContent, 'Previous notes')
+  assert.equal(editor.controls['.annotation-notes-update'].hidden, false)
+  response = () => Promise.resolve(chapter([{ id: 'lecture-a-slide-002', note: 'Other slide' }]))
+  editor.document.dispatchEvent(new Event('course-book-rebuilt'))
+  await tick()
+  assert.match(editor.notes.textContent, /no longer in the rebuilt book/)
+  assert.equal(editor.controls['.annotation-notes-update'].hidden, true)
+})
+
+test('out-of-order rebuilds and a fetch finishing after close never overwrite notes', async () => {
+  const image = slideImage('slide-001', 'Original')
+  const pending = []
+  const editor = createEditor({ images: [image], fetchChapter: () => new Promise(resolve => pending.push(resolve)) })
+  image.launch.fire('click')
+  await tick()
+  editor.document.dispatchEvent(new Event('course-book-rebuilt'))
+  editor.document.dispatchEvent(new Event('course-book-rebuilt'))
+  pending[1](chapter([{ id: 'lecture-a-slide-001', note: 'Latest' }]))
+  await tick()
+  pending[0](chapter([{ id: 'lecture-a-slide-001', note: 'Stale' }]))
+  await tick()
+  assert.equal(editor.notes.textContent, 'Latest')
+  editor.document.dispatchEvent(new Event('course-book-rebuilt'))
+  editor.controls['[data-action="cancel"]'].fire('click')
+  pending[2](chapter([{ id: 'lecture-a-slide-001', note: 'After close' }]))
+  await tick()
+  assert.equal(editor.modal.hidden, true)
+  assert.equal(editor.notes.textContent, 'Latest')
 })
