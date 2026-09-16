@@ -4,9 +4,34 @@
     ['select', 'Select'], ['pen', 'Pen'], ['highlighter', 'Highlight'], ['eraser', 'Eraser'],
     ['line', 'Line'], ['arrow', 'Arrow'], ['rectangle', 'Rectangle'], ['ellipse', 'Ellipse'], ['text', 'Text']
   ]
+  const shortcuts = { v: 'select', p: 'pen', h: 'highlighter', e: 'eraser', l: 'line', a: 'arrow', r: 'rectangle', o: 'ellipse', t: 'text' }
+  const toolKeys = Object.fromEntries(Object.entries(shortcuts).map(([key, tool]) => [tool, key.toUpperCase()]))
+  const preferencesKey = `course-tutor-annotation-settings:${document.currentScript?.dataset.courseId || location.pathname}`
   let modal, canvas, context, stage, status, colorInput, fillInput, fillEnabled, widthInput, opacityInput, pressureInput
+  let notesContent, notesToggle
   let sourceImage, documentState, slidePath, sourceElement, selected = -1, activeTool = 'pen', gesture = null, penActive = false
   let history = [], future = [], dirty = false, zoom = 1
+
+  function savePreferences() {
+    try {
+      localStorage.setItem(preferencesKey, JSON.stringify({
+        tool: activeTool, color: colorInput.value, fill: fillEnabled.checked, fillColor: fillInput.value,
+        width: Number(widthInput.value), opacity: Number(opacityInput.value), pressure: pressureInput.checked
+      }))
+    } catch {}
+  }
+  function restorePreferences() {
+    let saved
+    try { saved = JSON.parse(localStorage.getItem(preferencesKey) || 'null') } catch { return }
+    if (!saved || typeof saved !== 'object') return
+    if (/^#[0-9a-f]{6}$/i.test(saved.color)) colorInput.value = saved.color
+    if (/^#[0-9a-f]{6}$/i.test(saved.fillColor)) fillInput.value = saved.fillColor
+    if (typeof saved.fill === 'boolean') fillEnabled.checked = saved.fill
+    if (typeof saved.pressure === 'boolean') pressureInput.checked = saved.pressure
+    if (Number.isFinite(saved.width) && saved.width >= 1 && saved.width <= 32) widthInput.value = saved.width
+    if (Number.isFinite(saved.opacity) && saved.opacity >= .1 && saved.opacity <= 1) opacityInput.value = saved.opacity
+    if (tools.some(([name]) => name === saved.tool)) setTool(saved.tool, false)
+  }
 
   function id() { return `annotation-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}` }
   function clamp(value, minimum = 0, maximum = 1) { return Math.min(maximum, Math.max(minimum, value)) }
@@ -241,11 +266,27 @@
     try { canvas.releasePointerCapture(event.pointerId) } catch {}
     saveDraft()
   }
-  function setTool(tool) {
+  function setTool(tool, persist = true) {
     activeTool = tool
     canvas.dataset.tool = tool
     modal.querySelectorAll('[data-tool]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.tool === tool)))
     if (tool === 'highlighter') opacityInput.value = Math.min(Number(opacityInput.value), .38)
+    if (persist) savePreferences()
+  }
+  function showSlideNotes(image) {
+    const section = image.closest('.book-slide')
+    notesContent.replaceChildren()
+    if (!section) {
+      notesContent.textContent = 'No slide notes are available for this image.'
+      return
+    }
+    const copy = section.cloneNode(true)
+    copy.querySelectorAll('img, .annotation-launch, .slide-anchor, button, input, select, textarea, form, iframe, script').forEach(element => element.remove())
+    copy.querySelectorAll('p').forEach(element => {
+      if (!element.textContent.trim() && !element.children.length) element.remove()
+    })
+    notesContent.append(...copy.childNodes)
+    if (!notesContent.textContent.trim()) notesContent.textContent = 'No slide notes have been written yet.'
   }
   function setZoom(value) {
     zoom = clamp(value, .15, 3)
@@ -309,7 +350,7 @@
     modal.className = 'annotation-modal'
     modal.hidden = true
     modal.innerHTML = `<div class="annotation-toolbar">
-      <div class="annotation-tools">${tools.map(([name, label]) => `<button type="button" data-tool="${name}" aria-pressed="${name === 'pen'}">${label}</button>`).join('')}</div>
+      <div class="annotation-tools">${tools.map(([name, label]) => `<button type="button" data-tool="${name}" aria-pressed="${name === 'pen'}">${label} <kbd>${toolKeys[name]}</kbd></button>`).join('')}</div>
       <label>Colour <input class="annotation-color" type="color" value="#e53935"></label>
       <label><input class="annotation-fill-enabled" type="checkbox"> Fill</label>
       <label>Fill colour <input class="annotation-fill" type="color" value="#fff176"></label>
@@ -320,12 +361,19 @@
       <button type="button" data-action="undo">Undo</button><button type="button" data-action="redo">Redo</button>
       <button type="button" data-action="zoom-out">-</button><button type="button" data-action="fit">Fit</button><button type="button" data-action="zoom-in">+</button>
       <button type="button" data-action="clear" class="annotation-danger">Clear all</button>
-    </div><div class="annotation-stage"><canvas class="annotation-canvas" data-tool="pen"></canvas></div>
-    <div class="annotation-footer"><span class="annotation-status">Ready</span><div class="annotation-actions"><button type="button" data-action="cancel">Cancel</button><button type="button" class="annotation-save" data-action="save">Save</button></div></div>`
+      <button type="button" class="annotation-notes-toggle" aria-controls="annotation-slide-notes" aria-expanded="false">Slide notes</button>
+    </div><div class="annotation-workspace"><div class="annotation-stage"><canvas class="annotation-canvas" data-tool="pen"></canvas></div>
+      <aside class="annotation-notes" id="annotation-slide-notes" aria-label="Slide notes"><h2>Slide notes</h2><div class="annotation-notes-content"></div></aside></div>
+    <div class="annotation-footer"><span class="annotation-status">Ready</span><span class="annotation-shortcuts">Shortcuts: <kbd>Ctrl/⌘ S</kbd> Save · <kbd>Ctrl/⌘ Z</kbd> Undo · <kbd>Ctrl/⌘ Shift Z</kbd> Redo · <kbd>Del</kbd> Delete selected · <kbd>Esc</kbd> Close</span><div class="annotation-actions"><button type="button" data-action="cancel">Cancel</button><button type="button" class="annotation-save" data-action="save">Save</button></div></div>`
     document.body.append(modal)
     canvas = modal.querySelector('canvas'); context = canvas.getContext('2d'); stage = modal.querySelector('.annotation-stage'); status = modal.querySelector('.annotation-status')
     colorInput = modal.querySelector('.annotation-color'); fillInput = modal.querySelector('.annotation-fill'); fillEnabled = modal.querySelector('.annotation-fill-enabled')
     widthInput = modal.querySelector('.annotation-width'); opacityInput = modal.querySelector('.annotation-opacity'); pressureInput = modal.querySelector('.annotation-pressure')
+    notesContent = modal.querySelector('.annotation-notes-content'); notesToggle = modal.querySelector('.annotation-notes-toggle')
+    notesToggle.addEventListener('click', () => {
+      modal.dataset.notesOpen = String(modal.dataset.notesOpen !== 'true')
+      notesToggle.setAttribute('aria-expanded', modal.dataset.notesOpen)
+    })
     modal.querySelectorAll('[data-tool]').forEach(button => button.addEventListener('click', () => setTool(button.dataset.tool)))
     modal.querySelector('[data-action="undo"]').addEventListener('click', undo)
     modal.querySelector('[data-action="redo"]').addEventListener('click', redo)
@@ -341,6 +389,11 @@
     modal.querySelector('[data-action="cancel"]').addEventListener('click', () => closeEditor())
     modal.querySelector('[data-action="save"]').addEventListener('click', save)
     for (const input of [colorInput, fillInput, fillEnabled, widthInput, opacityInput]) input.addEventListener('change', updateSelectedStyle)
+    for (const input of [colorInput, fillInput, fillEnabled, widthInput, opacityInput, pressureInput]) {
+      input.addEventListener('input', savePreferences)
+      input.addEventListener('change', savePreferences)
+    }
+    restorePreferences()
     canvas.addEventListener('pointerdown', pointerDown)
     canvas.addEventListener('pointermove', pointerMove)
     canvas.addEventListener('pointerup', pointerUp)
@@ -348,6 +401,9 @@
   }
   async function openEditor(image, slide) {
     sourceElement = image; slidePath = slide
+    showSlideNotes(image)
+    modal.dataset.notesOpen = 'false'
+    notesToggle.setAttribute('aria-expanded', 'false')
     status.textContent = 'Loading clean slide and editable annotations...'
     modal.hidden = false
     document.body.style.overflow = 'hidden'
@@ -398,9 +454,9 @@
     const key = event.key.toLowerCase()
     if ((event.ctrlKey || event.metaKey) && key === 's') { event.preventDefault(); save(); return }
     if ((event.ctrlKey || event.metaKey) && key === 'z') { event.preventDefault(); event.shiftKey ? redo() : undo(); return }
-    if (event.key === 'Delete' && selected >= 0) { checkpoint(); documentState.objects.splice(selected, 1); selected = -1; render(); return }
     if (event.key === 'Escape') { closeEditor(); return }
-    const shortcuts = { v: 'select', p: 'pen', h: 'highlighter', e: 'eraser', l: 'line', a: 'arrow', r: 'rectangle', o: 'ellipse', t: 'text' }
+    if (event.target?.closest?.('input, textarea, select, button, a, summary, [contenteditable]')) return
+    if (event.key === 'Delete' && selected >= 0) { checkpoint(); documentState.objects.splice(selected, 1); selected = -1; render(); return }
     if (!event.ctrlKey && !event.metaKey && shortcuts[key]) setTool(shortcuts[key])
   }
   createModal()

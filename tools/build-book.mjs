@@ -278,6 +278,8 @@ export function buildBook(root = repoRoot, destination = path.join(root, '.study
       }
     })
     return renderer.render(stripFrontmatter(text), { sourcePath: page.source })
+      .replace(/<!-- search:start ([a-zA-Z0-9_-]+) -->([\s\S]*?)<!-- search:end -->/g,
+        (_, id, content) => `<section class="book-slide" data-slide-id="${id}"><!-- search:start ${id} -->${content}<!-- search:end --></section>`)
   }
   const searchIndex = []
 

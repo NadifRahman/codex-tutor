@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -125,7 +126,7 @@ test('live server exposes the annotation editor and safely saves slide annotatio
     fs.writeFileSync(path.join(root, 'course.yml'), 'course:\n  code: TEST\n')
     fs.writeFileSync(path.join(root, 'sources.yml'), 'sources: []\n')
     fs.writeFileSync(path.join(root, 'study-data/progress.yml'), 'slides: {}\n')
-    fs.writeFileSync(path.join(root, 'notes/slides/week-01/lecture-a/slide-001.md'), '# Slide 1\n\n![Original slide](../../../public/generated/lecture-a/slide-001.png)\n')
+    fs.writeFileSync(path.join(root, 'notes/slides/week-01/lecture-a/slide-001.md'), '# Slide 1\n\n![Original slide](../../../public/generated/lecture-a/slide-001.png)\n\n**Key idea:** $x + y$.\n')
     const slide = createCanvas(160, 90)
     slide.getContext('2d').fillRect(0, 0, 160, 90)
     fs.writeFileSync(path.join(root, 'notes/public/generated/lecture-a/slide-001.png'), slide.toBuffer('image/png'))
@@ -135,6 +136,9 @@ test('live server exposes the annotation editor and safely saves slide annotatio
     const html = await (await fetch(`${base}/chapters/week-01/`)).text()
     assert.match(html, /__live\/annotation\.js/)
     assert.match(html, /__live\/annotation\.css/)
+    assert.match(html, /<section class="book-slide" data-slide-id="lecture-a-slide-001">[\s\S]*Key idea:[\s\S]*<\/section>/)
+    const courseId = createHash('sha256').update(path.resolve(root)).digest('hex').slice(0, 16)
+    assert.match(html, new RegExp(`data-course-id="${courseId}"`))
     assert.equal((await fetch(`${base}/__live/annotation.js`)).status, 200)
     const stateResponse = await fetch(`${base}/__annotations/state?slide=generated%2Flecture-a%2Fslide-001.png`)
     const state = await stateResponse.json()

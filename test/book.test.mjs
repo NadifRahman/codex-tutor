@@ -46,6 +46,8 @@ test('builds local HTML and a search index from Markdown chapters', () => {
     assert.match(chapterHtml, /class="search-results"/)
     assert.match(chapterHtml, /class="katex"/)
     assert.match(chapterHtml, /class="katex-display"/)
+    assert.match(chapterHtml, /<section class="book-slide" data-slide-id="lecture-a-slide-001">/)
+    assert.match(chapterHtml, /<section class="book-slide"[\s\S]*CPU datapath[\s\S]*<\/section>/)
     assert.doesNotMatch(chapterHtml, /<p>\$\$/)
     assert.doesNotMatch(chapterHtml, /auto-render/)
     const generatedStyles = fs.readFileSync(path.join(result.destination, 'assets', 'style.css'), 'utf8')

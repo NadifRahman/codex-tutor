@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import { createHash } from 'node:crypto'
 import http from 'node:http'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -60,6 +61,7 @@ export function createLiveBookServer({ root = repoRoot, interval = 500 } = {}) {
   let revision = 0
   let error = false
   const session = Date.now().toString(36)
+  const courseId = createHash('sha256').update(path.resolve(root)).digest('hex').slice(0, 16)
   const clients = new Set()
   const state = () => JSON.stringify({ revision: `${session}:${revision}`, error })
   function rebuild() {
@@ -142,7 +144,7 @@ export function createLiveBookServer({ root = repoRoot, interval = 500 } = {}) {
     try {
       if (fs.statSync(target).isDirectory()) target = path.join(target, 'index.html')
       let body = fs.readFileSync(target)
-      if (path.extname(target) === '.html') body = body.toString().replace('</head>', '<link rel="stylesheet" href="/__live/annotation.css"></head>').replace('</body>', `<script defer src="/__live/annotation.js"></script><script defer src="/__live/client.js" data-revision="${session}:${revision}"></script></body>`)
+      if (path.extname(target) === '.html') body = body.toString().replace('</head>', '<link rel="stylesheet" href="/__live/annotation.css"></head>').replace('</body>', `<script defer src="/__live/annotation.js" data-course-id="${courseId}"></script><script defer src="/__live/client.js" data-revision="${session}:${revision}"></script></body>`)
       response.writeHead(200, { 'Content-Type': contentTypes[path.extname(target)] ?? 'application/octet-stream', 'Cache-Control': 'no-store' })
       response.end(body)
     } catch { response.writeHead(404).end('Not found') }
