@@ -155,26 +155,45 @@ test('live server exposes the annotation editor and safely saves slide annotatio
   }
 })
 
-test('browser refresh retains the slide offset and ignores failed builds', () => {
+test('browser refresh waits for annotation editing to close and retains the slide offset', () => {
   const source = fs.readFileSync(new URL('../tools/site/live-refresh.js', import.meta.url), 'utf8')
   let events, reloads = 0, onload, scroll
   const saved = new Map()
   const anchor = { id: 'slide-1', getBoundingClientRect: () => ({ top: -80 }) }
+  const modal = { hidden: false }
+  const listeners = new Map()
   const context = {
     location: { pathname: '/chapters/week-01/', reload: () => reloads++ },
     sessionStorage: { getItem: key => saved.get(key), setItem: (key, value) => saved.set(key, value), removeItem: key => saved.delete(key) },
     window: { scrollY: 400, addEventListener: (name, fn) => { onload = fn }, scrollTo: (x, y) => { scroll = y } },
-    document: { currentScript: { dataset: { revision: 'v1' } }, createElement: () => ({ setAttribute() {}, style: {} }), body: { append() {} }, querySelectorAll: () => [anchor], getElementById: () => anchor },
+    document: {
+      currentScript: { dataset: { revision: 'v1' } }, createElement: () => ({ setAttribute() {}, style: {} }), body: { append() {} },
+      querySelector: () => modal, querySelectorAll: () => [anchor], getElementById: () => anchor,
+      addEventListener: (name, fn) => listeners.set(name, fn)
+    },
     EventSource: class { constructor() { events = this } }
   }
+  const update = (revision, error = false) => events.onmessage({ data: JSON.stringify({ revision, error }) })
   vm.runInNewContext(source, context)
-  events.onmessage({ data: JSON.stringify({ revision: 'v1', error: true }) })
+  update('v1', true)
   assert.equal(reloads, 0)
-  events.onmessage({ data: JSON.stringify({ revision: 'v2', error: false }) })
+  update('v2')
+  update('v3')
+  update('v3', true)
+  assert.equal(reloads, 0, 'an open editor must not be interrupted')
+  modal.hidden = true
+  listeners.get('annotation-editor-closed')()
   assert.equal(reloads, 1)
-  context.document.currentScript.dataset.revision = 'v2'
+  listeners.get('annotation-editor-closed')()
+  update('v3')
+  assert.equal(reloads, 1, 'pending rebuilds should cause only one reload')
+  context.document.currentScript.dataset.revision = 'v3'
   vm.runInNewContext(source, context)
   onload()
   assert.equal(scroll, 400)
   assert.equal(saved.size, 0)
+  update('v4', true)
+  assert.equal(reloads, 1, 'failed builds must not reload')
+  update('v4')
+  assert.equal(reloads, 2, 'refresh resumes immediately when the editor is closed')
 })

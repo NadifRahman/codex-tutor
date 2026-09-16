@@ -14,19 +14,28 @@
   status.textContent = 'Live refresh connected'
   document.body.append(status)
   let revision = document.currentScript?.dataset.revision
+  let pendingRevision, reloading = false
+  const editorOpen = () => document.querySelector('.annotation-modal')?.hidden === false
+  function refreshIfReady() {
+    if (!pendingRevision || editorOpen() || reloading) return
+    reloading = true
+    const anchors = [...document.querySelectorAll('.slide-anchor')]
+    const anchor = anchors.filter(element => element.getBoundingClientRect().top <= 100).at(-1)
+    try {
+      sessionStorage.setItem(key, JSON.stringify({ id: anchor?.id, offset: anchor ? -anchor.getBoundingClientRect().top : 0, y: window.scrollY }))
+    } catch {}
+    location.reload()
+  }
+  document.addEventListener('annotation-editor-closed', refreshIfReady)
   const events = new EventSource('/__live/events')
   events.onmessage = ({ data }) => {
     const update = JSON.parse(data)
     status.textContent = update.error ? 'Notes could not rebuild. Check the terminal; your last working book is still available.' : 'Live refresh connected'
-    if (revision !== undefined && revision !== update.revision) {
-      const anchors = [...document.querySelectorAll('.slide-anchor')]
-      const anchor = anchors.filter(element => element.getBoundingClientRect().top <= 100).at(-1)
-      try {
-        sessionStorage.setItem(key, JSON.stringify({ id: anchor?.id, offset: anchor ? -anchor.getBoundingClientRect().top : 0, y: window.scrollY }))
-      } catch {}
-      location.reload()
+    if (revision === undefined) revision = update.revision
+    else if (!update.error && revision !== update.revision) {
+      pendingRevision = update.revision
+      refreshIfReady()
     }
-    revision = update.revision
   }
   events.onerror = () => { status.textContent = 'Live refresh disconnected — reconnecting…' }
 })()

@@ -289,6 +289,7 @@
     modal.hidden = true
     document.body.style.overflow = ''
     gesture = null
+    document.dispatchEvent(new Event('annotation-editor-closed'))
   }
   function updateSelectedStyle() {
     if (selected < 0) return
