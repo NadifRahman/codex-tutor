@@ -4,6 +4,7 @@ import test from 'node:test'
 import vm from 'node:vm'
 
 const source = fs.readFileSync(new URL('../tools/site/annotation.js', import.meta.url), 'utf8')
+const liveRefreshSource = fs.readFileSync(new URL('../tools/site/live-refresh.js', import.meta.url), 'utf8')
 const toolNames = ['select', 'pen', 'highlighter', 'eraser', 'line', 'arrow', 'rectangle', 'ellipse', 'text']
 
 function element(initial = {}) {
@@ -18,7 +19,7 @@ function element(initial = {}) {
   }
 }
 
-function createEditor({ courseId = 'course-a', storage = new Map(), images = [], storageUnavailable = false, fetchChapter, fetchAnnotations, confirm = () => false } = {}) {
+function createEditor({ courseId = 'course-a', storage = new Map(), images = [], storageUnavailable = false, fetchChapter, fetchAnnotations, confirm = () => false, liveRefresh = false, runTimers = false } = {}) {
   const controls = {
     canvas: element({ getContext: () => ({
       clearRect() {}, drawImage() {}, save() {}, restore() {}, beginPath() {}, arc() {}, fill() {}, moveTo() {},
@@ -56,29 +57,49 @@ function createEditor({ courseId = 'course-a', storage = new Map(), images = [],
   const buttons = toolNames.map(name => element({ dataset: { tool: name } }))
   const modal = element({ querySelector: selector => controls[selector], querySelectorAll: () => buttons })
   const keyboard = new Map()
+  const dispatched = []
+  let modalCreated = false
+  let liveEvents
+  let reloads = 0
   const document = {
     currentScript: { dataset: { courseId } }, body: { style: {}, append() {} },
-    createElement: tag => tag === 'div' ? modal : element(),
+    createElement: tag => {
+      if (tag === 'div' && !modalCreated) { modalCreated = true; return modal }
+      return element()
+    },
+    querySelector: selector => selector === '.annotation-modal' ? modal : undefined,
     querySelectorAll: selector => selector === 'main img' ? images : [],
+    getElementById: () => undefined,
     addEventListener(name, listener) { keyboard.set(name, listener) },
-    dispatchEvent(event) { keyboard.get(event.type)?.(event) }
+    dispatchEvent(event) { dispatched.push(event); keyboard.get(event.type)?.(event) }
   }
   const localStorage = {
     getItem(key) { if (storageUnavailable) throw new Error('Storage blocked'); return storage.get(key) ?? null },
     setItem(key, value) { if (storageUnavailable) throw new Error('Storage blocked'); storage.set(key, value) },
     removeItem(key) { if (storageUnavailable) throw new Error('Storage blocked'); storage.delete(key) }
   }
+  const location = { href: 'http://127.0.0.1:4173/chapters/week-01/', pathname: '/chapters/week-01/', search: '', reload: () => { reloads += 1 } }
   const context = {
-    document, localStorage, location: { href: 'http://127.0.0.1:4173/chapters/week-01/', pathname: '/chapters/week-01/', search: '' },
-    URL, Event, Image: class { async decode() {} },
+    document, localStorage, location,
+    URL, Event, CustomEvent: class { constructor(type, options = {}) { this.type = type; this.detail = options.detail } }, Image: class { async decode() {} },
     DOMParser: class { parseFromString(text) { return { querySelectorAll: () => JSON.parse(text).map(({ id, note }) => slideSection(id, note)) } } },
     fetch: (url, options) => url.startsWith('/__annotations/')
       ? fetchAnnotations?.(url, options) ?? Promise.resolve({ ok: true, json: async () => ({ objects: [], baseHash: 'base', width: 100, height: 100 }) })
       : fetchChapter?.(url, options) ?? Promise.reject(new Error('No chapter response')),
-    window: { confirm, prompt: () => null, setTimeout() {} }
+    sessionStorage: { getItem: () => null, setItem() {}, removeItem() {} },
+    window: { confirm, prompt: () => null, scrollY: 0, scrollTo() {}, addEventListener() {}, setTimeout(callback) { if (runTimers) callback() } },
+    EventSource: class { constructor() { liveEvents = this } }
   }
   vm.runInNewContext(source, context)
-  return { controls, buttons, modal, notes, keyboard, storage, document }
+  if (liveRefresh) {
+    document.currentScript = { dataset: { revision: 'v1' } }
+    vm.runInNewContext(liveRefreshSource, context)
+  }
+  return {
+    controls, buttons, modal, notes, keyboard, storage, document, dispatched,
+    emitRevision(revision, error = false) { liveEvents?.onmessage({ data: JSON.stringify({ revision, error }) }) },
+    get reloads() { return reloads }
+  }
 }
 
 function slideSection(id, note) {
@@ -294,6 +315,55 @@ test('a rebuilt chapter updates only the open slide notes without disturbing can
   editor.document.dispatchEvent(new Event('course-book-rebuilt'))
   await tick()
   assert.equal(editor.notes.textContent, 'New notes')
+})
+
+test('rebuilt notes refresh the regular book after navigation and Cancel', async () => {
+  const firstImage = slideImage('slide-001', 'Old first notes')
+  const secondImage = slideImage('slide-002', 'Old second notes')
+  const editor = createEditor({
+    images: [firstImage, secondImage], liveRefresh: true,
+    fetchChapter: () => Promise.resolve(chapter([
+      { id: 'lecture-a-slide-001', note: 'New first notes' },
+      { id: 'lecture-a-slide-002', note: 'New second notes' }
+    ]))
+  })
+
+  await firstImage.launch.fire('click')
+  editor.emitRevision('v2')
+  await tick()
+  assert.equal(editor.notes.textContent, 'New first notes')
+  await editor.controls['[data-action="next"]'].fire('click')
+  editor.controls['[data-action="cancel"]'].fire('click')
+
+  const close = editor.dispatched.findLast(event => event.type === 'annotation-editor-closed')
+  assert.deepEqual({ ...close.detail }, { bookChanged: true, revision: 'v2' })
+  assert.equal(editor.reloads, 1)
+})
+
+test('Save and Escape report rebuilt notes while failed refreshes do not', async () => {
+  for (const exit of ['save', 'escape']) {
+    const image = slideImage('slide-001', 'Old notes')
+    const editor = createEditor({
+      images: [image], runTimers: true,
+      fetchChapter: () => Promise.resolve(chapter([{ id: 'lecture-a-slide-001', note: 'New notes' }]))
+    })
+    await image.launch.fire('click')
+    editor.document.dispatchEvent({ type: 'course-book-rebuilt', detail: { revision: 'v2' } })
+    await tick()
+    if (exit === 'save') await editor.controls['[data-action="save"]'].fire('click')
+    else editor.keyboard.get('keydown')({ key: 'Escape', target: { closest: () => null } })
+    const close = editor.dispatched.findLast(event => event.type === 'annotation-editor-closed')
+    assert.deepEqual({ ...close.detail }, { bookChanged: true, revision: 'v2' })
+  }
+
+  const image = slideImage('slide-001', 'Last working notes')
+  const failed = createEditor({ images: [image], fetchChapter: () => Promise.reject(new Error('offline')) })
+  await image.launch.fire('click')
+  failed.document.dispatchEvent({ type: 'course-book-rebuilt', detail: { revision: 'v2' } })
+  await tick()
+  failed.controls['[data-action="cancel"]'].fire('click')
+  const close = failed.dispatched.findLast(event => event.type === 'annotation-editor-closed')
+  assert.deepEqual({ ...close.detail }, { bookChanged: false, revision: undefined })
 })
 
 test('failed notes fetch retains content, and a removed slide is clearly reported', async () => {

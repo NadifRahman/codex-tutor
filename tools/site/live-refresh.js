@@ -16,8 +16,9 @@
   let revision = document.currentScript?.dataset.revision
   let pendingRevision, reloading = false
   const editorOpen = () => document.querySelector('.annotation-modal')?.hidden === false
-  function refreshIfReady() {
-    if (!pendingRevision || editorOpen() || reloading) return
+  function refreshIfReady(event) {
+    const annotationDisplayedRebuild = event?.detail?.bookChanged === true
+    if ((!pendingRevision && !annotationDisplayedRebuild) || editorOpen() || reloading) return
     reloading = true
     const anchors = [...document.querySelectorAll('.slide-anchor')]
     const anchor = anchors.filter(element => element.getBoundingClientRect().top <= 100).at(-1)

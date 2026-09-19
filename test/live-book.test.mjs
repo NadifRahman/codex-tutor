@@ -207,3 +207,29 @@ test('browser refresh waits for annotation editing to close and retains the slid
   update('v4')
   assert.equal(reloads, 2, 'refresh resumes immediately when the editor is closed')
 })
+
+test('annotation close can explicitly refresh the regular book without pending live state', () => {
+  const source = fs.readFileSync(new URL('../tools/site/live-refresh.js', import.meta.url), 'utf8')
+  let reloads = 0
+  const listeners = new Map()
+  const modal = { hidden: true }
+  const context = {
+    location: { pathname: '/chapters/week-01/', reload: () => { reloads += 1 } },
+    sessionStorage: { getItem: () => null, setItem() {}, removeItem() {} },
+    window: { scrollY: 0, addEventListener() {}, scrollTo() {} },
+    document: {
+      currentScript: { dataset: { revision: 'v1' } }, createElement: () => ({ setAttribute() {}, style: {} }), body: { append() {} },
+      querySelector: () => modal, querySelectorAll: () => [], getElementById: () => undefined,
+      addEventListener: (name, listener) => listeners.set(name, listener), dispatchEvent() {}
+    },
+    CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail } },
+    EventSource: class {}
+  }
+  vm.runInNewContext(source, context)
+
+  listeners.get('annotation-editor-closed')({ detail: { bookChanged: false } })
+  assert.equal(reloads, 0)
+  listeners.get('annotation-editor-closed')({ detail: { bookChanged: true, revision: 'v2' } })
+  listeners.get('annotation-editor-closed')({ detail: { bookChanged: true, revision: 'v2' } })
+  assert.equal(reloads, 1, 'an explicit annotation refresh should reload exactly once')
+})

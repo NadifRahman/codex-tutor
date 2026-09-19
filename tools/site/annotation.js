@@ -10,6 +10,7 @@
   let modal, canvas, context, stage, status, colorInput, fillInput, fillEnabled, widthInput, opacityInput, pressureInput
   let notesPanel, notesContent, notesUpdate, notesToggle, previousButton, nextButton, positionLabel, saveButton
   let activeSlideId, notesRequestToken = 0, slideLoadToken = 0, navigationBusy = false
+  let bookChangedWhileOpen = false, latestBookRevision
   let sourceImage, documentState, slidePath, sourceElement, selected = -1, activeTool = 'pen', gesture = null, penActive = false
   let history = [], future = [], dirty = false, zoom = 1
 
@@ -288,7 +289,7 @@
     notesContent.append(...copy.childNodes)
     if (!notesContent.textContent.trim()) notesContent.textContent = 'No slide notes have been written yet.'
   }
-  async function refreshSlideNotes() {
+  async function refreshSlideNotes(revision) {
     if (modal.hidden || !activeSlideId) return
     const token = ++notesRequestToken
     const slideId = activeSlideId
@@ -302,6 +303,8 @@
       showSlideNotes(section, 'This slide is no longer in the rebuilt book.')
       notesPanel.scrollTop = scrollTop
       notesUpdate.hidden = true
+      bookChangedWhileOpen = true
+      latestBookRevision = revision
     } catch {
       if (token !== notesRequestToken || modal.hidden || activeSlideId !== slideId) return
       notesUpdate.textContent = 'Could not refresh slide notes. Showing the previous version.'
@@ -390,7 +393,10 @@
     activeSlideId = null
     document.body.style.overflow = ''
     gesture = null
-    document.dispatchEvent(new Event('annotation-editor-closed'))
+    const detail = { bookChanged: bookChangedWhileOpen, revision: latestBookRevision }
+    bookChangedWhileOpen = false
+    latestBookRevision = undefined
+    document.dispatchEvent(new CustomEvent('annotation-editor-closed', { detail }))
   }
   function updateSelectedStyle() {
     if (selected < 0) return
@@ -465,6 +471,11 @@
     canvas.addEventListener('pointercancel', pointerUp)
   }
   async function openEditor(image, slide) {
+    const startingSession = modal.hidden
+    if (startingSession) {
+      bookChangedWhileOpen = false
+      latestBookRevision = undefined
+    }
     const token = ++slideLoadToken
     status.textContent = 'Loading clean slide and editable annotations...'
     modal.hidden = false
@@ -543,5 +554,5 @@
   createModal()
   enhanceSlides()
   document.addEventListener('keydown', keyboard)
-  document.addEventListener('course-book-rebuilt', () => { void refreshSlideNotes() })
+  document.addEventListener('course-book-rebuilt', event => { void refreshSlideNotes(event.detail?.revision) })
 })()
