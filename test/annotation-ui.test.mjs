@@ -12,15 +12,18 @@ function element(initial = {}) {
   return {
     value: '', checked: false, dataset: {}, style: {}, hidden: false, textContent: '', ...initial,
     addEventListener(name, listener) { listeners.set(name, listener) },
-    fire(name, event = {}) { listeners.get(name)?.(event) },
+    fire(name, event = {}) { return listeners.get(name)?.(event) },
     setAttribute(name, value) { attributes.set(name, value) },
     getAttribute(name) { return attributes.get(name) }
   }
 }
 
-function createEditor({ courseId = 'course-a', storage = new Map(), images = [], storageUnavailable = false, fetchChapter } = {}) {
+function createEditor({ courseId = 'course-a', storage = new Map(), images = [], storageUnavailable = false, fetchChapter, fetchAnnotations, confirm = () => false } = {}) {
   const controls = {
-    canvas: element({ getContext: () => ({ clearRect() {}, drawImage() {} }) }),
+    canvas: element({ getContext: () => ({
+      clearRect() {}, drawImage() {}, save() {}, restore() {}, beginPath() {}, arc() {}, fill() {}, moveTo() {},
+      lineTo() {}, stroke() {}, rect() {}, ellipse() {}, fillText() {}, strokeRect() {}, setLineDash() {}, fillRect() {}
+    }) }),
     '.annotation-stage': element({ clientWidth: 800, clientHeight: 600 }),
     '.annotation-status': element(),
     '.annotation-color': element({ value: '#e53935' }),
@@ -33,6 +36,7 @@ function createEditor({ courseId = 'course-a', storage = new Map(), images = [],
     '.annotation-notes-update': element({ hidden: true }),
     '.annotation-notes-toggle': element(),
     '.annotation-save': element(),
+    '.annotation-position': element(),
     '[data-action="undo"]': element(),
     '[data-action="redo"]': element(),
     '[data-action="zoom-in"]': element(),
@@ -40,6 +44,8 @@ function createEditor({ courseId = 'course-a', storage = new Map(), images = [],
     '[data-action="fit"]': element(),
     '[data-action="clear"]': element(),
     '[data-action="note"]': element(),
+    '[data-action="previous"]': element(),
+    '[data-action="next"]': element(),
     '[data-action="cancel"]': element(),
     '[data-action="save"]': element()
   }
@@ -59,16 +65,17 @@ function createEditor({ courseId = 'course-a', storage = new Map(), images = [],
   }
   const localStorage = {
     getItem(key) { if (storageUnavailable) throw new Error('Storage blocked'); return storage.get(key) ?? null },
-    setItem(key, value) { if (storageUnavailable) throw new Error('Storage blocked'); storage.set(key, value) }
+    setItem(key, value) { if (storageUnavailable) throw new Error('Storage blocked'); storage.set(key, value) },
+    removeItem(key) { if (storageUnavailable) throw new Error('Storage blocked'); storage.delete(key) }
   }
   const context = {
     document, localStorage, location: { href: 'http://127.0.0.1:4173/chapters/week-01/', pathname: '/chapters/week-01/', search: '' },
     URL, Event, Image: class { async decode() {} },
     DOMParser: class { parseFromString(text) { return { querySelectorAll: () => JSON.parse(text).map(({ id, note }) => slideSection(id, note)) } } },
     fetch: (url, options) => url.startsWith('/__annotations/')
-      ? Promise.resolve({ ok: true, json: async () => ({ objects: [], baseHash: 'base', width: 100, height: 100 }) })
+      ? fetchAnnotations?.(url, options) ?? Promise.resolve({ ok: true, json: async () => ({ objects: [], baseHash: 'base', width: 100, height: 100 }) })
       : fetchChapter?.(url, options) ?? Promise.reject(new Error('No chapter response')),
-    window: { confirm: () => false, prompt: () => null, setTimeout() {} }
+    window: { confirm, prompt: () => null, setTimeout() {} }
   }
   vm.runInNewContext(source, context)
   return { controls, buttons, modal, notes, keyboard, storage, document }
@@ -151,6 +158,113 @@ test('the annotation panel shows the selected slide notes and keyboard hints', a
 
 const tick = () => new Promise(resolve => setImmediate(resolve))
 const chapter = slides => ({ ok: true, text: async () => JSON.stringify(slides) })
+const annotationState = (extra = {}) => ({ objects: [], baseHash: 'base', width: 100, height: 100, ...extra })
+const draftStroke = { id: 'draft', type: 'stroke', tool: 'pen', color: '#e53935', width: .01, opacity: 1, note: '', pressureEnabled: false, points: [{ x: .1, y: .1, pressure: 1 }] }
+
+test('previous and next navigate clean slides, update notes, and enforce boundaries', async () => {
+  const firstImage = slideImage('slide-001', 'First notes')
+  const secondImage = slideImage('slide-002', 'Second notes')
+  const requests = []
+  const editor = createEditor({ images: [firstImage, secondImage], fetchAnnotations: async (url, options) => {
+    requests.push({ url, options })
+    return { ok: true, json: async () => annotationState() }
+  } })
+
+  await firstImage.launch.fire('click')
+  assert.equal(editor.controls['.annotation-position'].textContent, 'Slide 1 of 2')
+  assert.equal(editor.controls['[data-action="previous"]'].disabled, true)
+  assert.equal(editor.controls['[data-action="next"]'].disabled, false)
+
+  editor.buttons.find(button => button.dataset.tool === 'rectangle').fire('click')
+  await editor.controls['[data-action="next"]'].fire('click')
+  assert.equal(editor.notes.textContent, 'Second notes')
+  assert.equal(editor.controls['.annotation-position'].textContent, 'Slide 2 of 2')
+  assert.equal(editor.controls['[data-action="previous"]'].disabled, false)
+  assert.equal(editor.controls['[data-action="next"]'].disabled, true)
+  assert.equal(editor.controls.canvas.dataset.tool, 'rectangle')
+  assert.equal(requests.filter(request => request.options?.method === 'POST').length, 0)
+})
+
+test('arrow shortcuts navigate except from interactive controls', async () => {
+  const firstImage = slideImage('slide-001', 'First notes')
+  const secondImage = slideImage('slide-002', 'Second notes')
+  const editor = createEditor({ images: [firstImage, secondImage] })
+  await firstImage.launch.fire('click')
+  const keydown = editor.keyboard.get('keydown')
+
+  keydown({ key: 'ArrowRight', target: { closest: () => ({}) }, ctrlKey: false, metaKey: false, preventDefault() {} })
+  await tick()
+  assert.equal(editor.notes.textContent, 'First notes')
+
+  let prevented = false
+  keydown({ key: 'ArrowRight', target: { closest: () => null }, ctrlKey: false, metaKey: false, repeat: false, preventDefault() { prevented = true } })
+  await tick()
+  assert.equal(prevented, true)
+  assert.equal(editor.notes.textContent, 'Second notes')
+})
+
+test('navigation saves a restored dirty draft before loading the next slide', async () => {
+  const firstImage = slideImage('slide-001', 'First notes')
+  const secondImage = slideImage('slide-002', 'Second notes')
+  const storage = new Map([['course-tutor-annotation:generated/lecture-a/slide-001.png', JSON.stringify({ baseHash: 'base', objects: [draftStroke] })]])
+  const requests = []
+  const editor = createEditor({ images: [firstImage, secondImage], storage, confirm: () => true, fetchAnnotations: async (url, options) => {
+    requests.push({ url, options })
+    if (options?.method === 'POST') return { ok: true, json: async () => JSON.parse(options.body) }
+    return { ok: true, json: async () => annotationState() }
+  } })
+
+  await firstImage.launch.fire('click')
+  await editor.controls['[data-action="next"]'].fire('click')
+  const saves = requests.filter(request => request.options?.method === 'POST')
+  assert.equal(saves.length, 1)
+  assert.equal(JSON.parse(saves[0].options.body).slide, 'generated/lecture-a/slide-001.png')
+  assert.equal(editor.notes.textContent, 'Second notes')
+  assert.equal(storage.has('course-tutor-annotation:generated/lecture-a/slide-001.png'), false)
+})
+
+test('save failures keep the current slide open and prevent navigation', async () => {
+  const firstImage = slideImage('slide-001', 'First notes')
+  const secondImage = slideImage('slide-002', 'Second notes')
+  const storage = new Map([['course-tutor-annotation:generated/lecture-a/slide-001.png', JSON.stringify({ baseHash: 'base', objects: [draftStroke] })]])
+  const editor = createEditor({ images: [firstImage, secondImage], storage, confirm: () => true, fetchAnnotations: async (url, options) => {
+    if (options?.method === 'POST') return { ok: false, json: async () => ({ error: 'The clean slide changed while the editor was open.' }) }
+    return { ok: true, json: async () => annotationState() }
+  } })
+
+  await firstImage.launch.fire('click')
+  await editor.controls['[data-action="next"]'].fire('click')
+  assert.equal(editor.notes.textContent, 'First notes')
+  assert.equal(editor.controls['.annotation-position'].textContent, 'Slide 1 of 2')
+  assert.match(editor.controls['.annotation-status'].textContent, /clean slide changed/)
+  assert.equal(editor.controls['[data-action="next"]'].disabled, false)
+})
+
+test('overlapping navigation attempts produce one save and one transition', async () => {
+  const firstImage = slideImage('slide-001', 'First notes')
+  const secondImage = slideImage('slide-002', 'Second notes')
+  const storage = new Map([['course-tutor-annotation:generated/lecture-a/slide-001.png', JSON.stringify({ baseHash: 'base', objects: [draftStroke] })]])
+  let releaseSave
+  let saves = 0
+  const editor = createEditor({ images: [firstImage, secondImage], storage, confirm: () => true, fetchAnnotations: async (url, options) => {
+    if (options?.method === 'POST') {
+      saves += 1
+      await new Promise(resolve => { releaseSave = resolve })
+      return { ok: true, json: async () => JSON.parse(options.body) }
+    }
+    return { ok: true, json: async () => annotationState() }
+  } })
+
+  await firstImage.launch.fire('click')
+  const firstNavigation = editor.controls['[data-action="next"]'].fire('click')
+  const duplicateNavigation = editor.controls['[data-action="next"]'].fire('click')
+  await tick()
+  assert.equal(saves, 1)
+  releaseSave()
+  await Promise.all([firstNavigation, duplicateNavigation])
+  assert.equal(editor.notes.textContent, 'Second notes')
+  assert.equal(saves, 1)
+})
 
 test('a rebuilt chapter updates only the open slide notes without disturbing canvas or scroll', async () => {
   const image = slideImage('slide-001', 'Old notes')

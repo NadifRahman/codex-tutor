@@ -134,7 +134,7 @@ Leave this command running while studying. It watches saved slide Markdown, the 
 
 ### Annotate slides with a mouse or stylus
 
-While `npm run notes:dev` is running, every prepared slide has an **Annotate slide** button. The editor supports pressure-sensitive pen strokes, highlighting, whole-stroke erasing, lines, arrows, rectangles, ellipses, text, colours, fills, opacity, thickness, attached notes, selection, moving, resizing, undo/redo, zoom, and draft recovery. Wacom and other styluses use browser Pointer Events; enable Windows Ink in the tablet driver when pressure is not detected.
+While `npm run notes:dev` is running, every prepared slide has an **Annotate slide** button. The editor supports pressure-sensitive pen strokes, highlighting, whole-stroke erasing, lines, arrows, rectangles, ellipses, text, colours, fills, opacity, thickness, attached notes, selection, moving, resizing, undo/redo, zoom, and draft recovery. Use **Previous** and **Next**, or the left and right arrow keys when a control is not focused, to save changed annotations and move between slides without closing the editor; the matching slide notes update at the same time. Wacom and other styluses use browser Pointer Events; enable Windows Ink in the tablet driver when pressure is not detected.
 
 Saving keeps three layers: the clean PDF render under `.study-cache/`, editable vector data under `notes/annotations/`, and the flattened PNG at the existing `notes/public/generated/` path. Markdown previews, the live book, static builds, printing, and the tutor therefore see the annotation without changing slide-note links. Re-preparing a PDF reapplies saved annotations. The editor refuses a stale save if its clean slide changed while the editor was open.
 

@@ -110,6 +110,10 @@
 .annotation-canvas[data-tool="eraser"] { cursor: cell; }
 .annotation-status { font-size: .86rem; color: #cbd5e1; }
 .annotation-shortcuts { color: #cbd5e1; font-size: .78rem; }
+.annotation-navigation { display: flex; align-items: center; gap: .45rem; }
+.annotation-position { min-width: 6.5rem; text-align: center; color: #e2e8f0; font-size: .86rem; }
+.annotation-navigation button:disabled,
+.annotation-actions button:disabled { cursor: not-allowed; opacity: .5; }
 .annotation-actions { display: flex; gap: .5rem; }
 .annotation-save { background: #16a34a !important; border-color: #4ade80 !important; }
 .annotation-danger { color: #fecaca !important; }
@@ -139,6 +143,8 @@
     border-left: 0;
   }
   .annotation-shortcuts { display: none; }
+  .annotation-footer { justify-content: center; }
+  .annotation-status { flex: 1 0 100%; text-align: center; }
 }
 
 @media print {

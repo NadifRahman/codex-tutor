@@ -8,7 +8,8 @@
   const toolKeys = Object.fromEntries(Object.entries(shortcuts).map(([key, tool]) => [tool, key.toUpperCase()]))
   const preferencesKey = `course-tutor-annotation-settings:${document.currentScript?.dataset.courseId || location.pathname}`
   let modal, canvas, context, stage, status, colorInput, fillInput, fillEnabled, widthInput, opacityInput, pressureInput
-  let notesPanel, notesContent, notesUpdate, notesToggle, activeSlideId, notesRequestToken = 0
+  let notesPanel, notesContent, notesUpdate, notesToggle, previousButton, nextButton, positionLabel, saveButton
+  let activeSlideId, notesRequestToken = 0, slideLoadToken = 0, navigationBusy = false
   let sourceImage, documentState, slidePath, sourceElement, selected = -1, activeTool = 'pen', gesture = null, penActive = false
   let history = [], future = [], dirty = false, zoom = 1
 
@@ -318,14 +319,30 @@
     const availableHeight = Math.max(150, stage.clientHeight - 32)
     setZoom(Math.min(1, availableWidth / canvas.width, availableHeight / canvas.height))
   }
-  function draftKey() { return `course-tutor-annotation:${slidePath}` }
+  function draftKey(slide = slidePath) { return `course-tutor-annotation:${slide}` }
   function saveDraft() {
     if (!dirty || !documentState) return
     try { localStorage.setItem(draftKey(), JSON.stringify({ baseHash: documentState.baseHash, objects: documentState.objects })) } catch {}
   }
-  async function save() {
-    const button = modal.querySelector('.annotation-save')
-    button.disabled = true
+  function annotatableSlides() {
+    return [...document.querySelectorAll('main img')]
+      .map(image => ({ image, slide: slidePathFor(image) }))
+      .filter(entry => entry.slide && /\/slide-\d+\.png$/i.test(entry.slide))
+  }
+  function updateNavigation() {
+    const slides = annotatableSlides()
+    const index = slides.findIndex(entry => entry.image === sourceElement)
+    positionLabel.textContent = index >= 0 ? `Slide ${index + 1} of ${slides.length}` : 'Slide'
+    previousButton.disabled = navigationBusy || index <= 0
+    nextButton.disabled = navigationBusy || index < 0 || index >= slides.length - 1
+    saveButton.disabled = navigationBusy
+  }
+  function setNavigationBusy(value) {
+    navigationBusy = value
+    updateNavigation()
+  }
+  async function persist({ onlyIfNeeded = false } = {}) {
+    if (onlyIfNeeded && !dirty && !documentState?.needsReview) return true
     status.textContent = 'Saving full-resolution annotated PNG...'
     try {
       const response = await fetch('/__annotations/save', {
@@ -337,17 +354,39 @@
       documentState = result
       dirty = false
       try { localStorage.removeItem(draftKey()) } catch {}
-      status.textContent = 'Saved. The live book is rebuilding...'
       sourceElement.src = `${sourceElement.src.split('?')[0]}?annotation=${Date.now()}`
-      window.setTimeout(() => closeEditor(true), 350)
-    } catch (error) { status.textContent = error.message }
-    finally { button.disabled = false }
+      return true
+    } catch (error) {
+      status.textContent = error.message
+      return false
+    }
+  }
+  async function save() {
+    if (navigationBusy) return
+    setNavigationBusy(true)
+    const saved = await persist()
+    if (!saved) { setNavigationBusy(false); return }
+    status.textContent = 'Saved. The live book is rebuilding...'
+    window.setTimeout(() => { setNavigationBusy(false); closeEditor(true) }, 350)
+  }
+  async function navigate(offset) {
+    if (navigationBusy) return
+    const slides = annotatableSlides()
+    const index = slides.findIndex(entry => entry.image === sourceElement)
+    const target = slides[index + offset]
+    if (!target) return
+    setNavigationBusy(true)
+    if (!await persist({ onlyIfNeeded: true })) { setNavigationBusy(false); return }
+    status.textContent = `Loading ${offset < 0 ? 'previous' : 'next'} slide...`
+    await openEditor(target.image, target.slide)
+    setNavigationBusy(false)
   }
   function closeEditor(force = false) {
     if (!force && dirty && !window.confirm('Close without saving these annotation changes? A local draft will be retained.')) return
     saveDraft()
     modal.hidden = true
     notesRequestToken += 1
+    slideLoadToken += 1
     activeSlideId = null
     document.body.style.overflow = ''
     gesture = null
@@ -385,13 +424,15 @@
       <button type="button" class="annotation-notes-toggle" aria-controls="annotation-slide-notes" aria-expanded="false">Slide notes</button>
     </div><div class="annotation-workspace"><div class="annotation-stage"><canvas class="annotation-canvas" data-tool="pen"></canvas></div>
       <aside class="annotation-notes" id="annotation-slide-notes" aria-label="Slide notes"><h2>Slide notes</h2><p class="annotation-notes-update" role="status" hidden></p><div class="annotation-notes-content"></div></aside></div>
-    <div class="annotation-footer"><span class="annotation-status">Ready</span><span class="annotation-shortcuts">Shortcuts: <kbd>Ctrl/⌘ S</kbd> Save · <kbd>Ctrl/⌘ Z</kbd> Undo · <kbd>Ctrl/⌘ Shift Z</kbd> Redo · <kbd>Del</kbd> Delete selected · <kbd>Esc</kbd> Close</span><div class="annotation-actions"><button type="button" data-action="cancel">Cancel</button><button type="button" class="annotation-save" data-action="save">Save</button></div></div>`
+    <div class="annotation-footer"><span class="annotation-status">Ready</span><div class="annotation-navigation"><button type="button" data-action="previous" aria-label="Save and annotate previous slide">← Previous</button><span class="annotation-position" aria-live="polite">Slide</span><button type="button" data-action="next" aria-label="Save and annotate next slide">Next →</button></div><span class="annotation-shortcuts">Shortcuts: <kbd>←</kbd>/<kbd>→</kbd> Slides · <kbd>Ctrl/⌘ S</kbd> Save · <kbd>Ctrl/⌘ Z</kbd> Undo · <kbd>Ctrl/⌘ Shift Z</kbd> Redo · <kbd>Del</kbd> Delete selected · <kbd>Esc</kbd> Close</span><div class="annotation-actions"><button type="button" data-action="cancel">Cancel</button><button type="button" class="annotation-save" data-action="save">Save</button></div></div>`
     document.body.append(modal)
     canvas = modal.querySelector('canvas'); context = canvas.getContext('2d'); stage = modal.querySelector('.annotation-stage'); status = modal.querySelector('.annotation-status')
     colorInput = modal.querySelector('.annotation-color'); fillInput = modal.querySelector('.annotation-fill'); fillEnabled = modal.querySelector('.annotation-fill-enabled')
     widthInput = modal.querySelector('.annotation-width'); opacityInput = modal.querySelector('.annotation-opacity'); pressureInput = modal.querySelector('.annotation-pressure')
     notesPanel = modal.querySelector('.annotation-notes'); notesContent = modal.querySelector('.annotation-notes-content')
     notesUpdate = modal.querySelector('.annotation-notes-update'); notesToggle = modal.querySelector('.annotation-notes-toggle')
+    previousButton = modal.querySelector('[data-action="previous"]'); nextButton = modal.querySelector('[data-action="next"]')
+    positionLabel = modal.querySelector('.annotation-position'); saveButton = modal.querySelector('.annotation-save')
     notesToggle.addEventListener('click', () => {
       modal.dataset.notesOpen = String(modal.dataset.notesOpen !== 'true')
       notesToggle.setAttribute('aria-expanded', modal.dataset.notesOpen)
@@ -410,6 +451,8 @@
     })
     modal.querySelector('[data-action="cancel"]').addEventListener('click', () => closeEditor())
     modal.querySelector('[data-action="save"]').addEventListener('click', save)
+    previousButton.addEventListener('click', () => navigate(-1))
+    nextButton.addEventListener('click', () => navigate(1))
     for (const input of [colorInput, fillInput, fillEnabled, widthInput, opacityInput]) input.addEventListener('change', updateSelectedStyle)
     for (const input of [colorInput, fillInput, fillEnabled, widthInput, opacityInput, pressureInput]) {
       input.addEventListener('input', savePreferences)
@@ -422,14 +465,7 @@
     canvas.addEventListener('pointercancel', pointerUp)
   }
   async function openEditor(image, slide) {
-    sourceElement = image; slidePath = slide
-    notesRequestToken += 1
-    activeSlideId = image.closest('.book-slide')?.dataset.slideId
-    notesPanel.scrollTop = 0
-    notesUpdate.hidden = true
-    showSlideNotes(image.closest('.book-slide'))
-    modal.dataset.notesOpen = 'false'
-    notesToggle.setAttribute('aria-expanded', 'false')
+    const token = ++slideLoadToken
     status.textContent = 'Loading clean slide and editable annotations...'
     modal.hidden = false
     document.body.style.overflow = 'hidden'
@@ -437,24 +473,41 @@
       const response = await fetch(`/__annotations/state?slide=${encodeURIComponent(slide)}`)
       const state = await response.json()
       if (!response.ok) throw new Error(state.error || 'Could not load annotations')
-      documentState = state
-      const draft = localStorage.getItem(draftKey())
+      let restoredDraft = false
+      const draft = localStorage.getItem(draftKey(slide))
       if (draft) {
         try {
           const parsed = JSON.parse(draft)
-          if (parsed.baseHash === state.baseHash && window.confirm('Restore the unsaved annotation draft for this slide?')) documentState.objects = parsed.objects
+          if (parsed.baseHash === state.baseHash && window.confirm('Restore the unsaved annotation draft for this slide?')) {
+            state.objects = parsed.objects
+            restoredDraft = true
+          }
         } catch {}
       }
-      sourceImage = new Image()
-      sourceImage.src = `/__annotations/base?slide=${encodeURIComponent(slide)}&v=${encodeURIComponent(state.baseHash)}`
-      await sourceImage.decode()
+      const nextImage = new Image()
+      nextImage.src = `/__annotations/base?slide=${encodeURIComponent(slide)}&v=${encodeURIComponent(state.baseHash)}`
+      await nextImage.decode()
+      if (token !== slideLoadToken || modal.hidden) return false
+      sourceElement = image; slidePath = slide; sourceImage = nextImage; documentState = state
+      notesRequestToken += 1
+      activeSlideId = image.closest('.book-slide')?.dataset.slideId
+      notesPanel.scrollTop = 0
+      notesUpdate.hidden = true
+      showSlideNotes(image.closest('.book-slide'))
+      modal.dataset.notesOpen = 'false'
+      notesToggle.setAttribute('aria-expanded', 'false')
       canvas.width = state.width; canvas.height = state.height
-      history = []; future = []; selected = -1; dirty = false
+      history = []; future = []; selected = -1; dirty = restoredDraft
       fitCanvas(); render()
+      updateNavigation()
       status.textContent = state.needsReview
         ? 'Warning: the source slide changed. Review annotation alignment, then Save to confirm it.'
         : 'Ready. Pen pressure will appear here when detected.'
-    } catch (error) { status.textContent = error.message }
+      return true
+    } catch (error) {
+      if (token === slideLoadToken) status.textContent = error.message
+      return false
+    }
   }
   function slidePathFor(image) {
     try {
@@ -482,6 +535,8 @@
     if ((event.ctrlKey || event.metaKey) && key === 'z') { event.preventDefault(); event.shiftKey ? redo() : undo(); return }
     if (event.key === 'Escape') { closeEditor(); return }
     if (event.target?.closest?.('input, textarea, select, button, a, summary, [contenteditable]')) return
+    if (!event.repeat && event.key === 'ArrowLeft') { event.preventDefault(); navigate(-1); return }
+    if (!event.repeat && event.key === 'ArrowRight') { event.preventDefault(); navigate(1); return }
     if (event.key === 'Delete' && selected >= 0) { checkpoint(); documentState.objects.splice(selected, 1); selected = -1; render(); return }
     if (!event.ctrlKey && !event.metaKey && shortcuts[key]) setTool(shortcuts[key])
   }
